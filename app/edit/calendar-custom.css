@@ -1,0 +1,14 @@
+.react-calendar {
+  width: 100% !important;
+  background: white !important;
+  border: none !important;
+  font-family: inherit !important;
+  border-radius: 1rem;
+}
+.react-calendar__tile--active {
+  background: #2563eb !important;
+  border-radius: 0.5rem;
+}
+.react-calendar__navigation button:hover {
+  background-color: #f1f5f9 !important;
+}
