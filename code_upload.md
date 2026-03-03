@@ -1,5 +1,9 @@
-git init
+# 1. 수정된 모든 파일을 스테이징 영역에 추가
 git add .
-git commit -m "Initial deploy"
-git remote add origin https://github.com/paikpaikeye-max/ophws.git
-git push -u origin main
+
+# 2. 변경 내용에 대한 설명(메시지) 기록
+# "업데이트 내용" 부분에 본인이 수정한 내용을 자유롭게 적으세요.
+git commit -m "업데이트 내용 입력 (예: 당직 시간 로직 수정)"
+
+# 3. GitHub로 업로드 (이 명령어를 치면 Vercel이 자동으로 빌드를 시작합니다)
+git push origin main
