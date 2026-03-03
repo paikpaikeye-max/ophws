@@ -153,7 +153,7 @@ export default function LandingPage() {
           <button onClick={() => router.push('/settings')} className="group w-full bg-slate-100 hover:bg-slate-200 text-slate-600 p-5 rounded-[2rem] transition-all flex items-center justify-between px-8">
             <div className="flex items-center gap-4">
               <span className="text-xl">⚙️</span>
-              <h2 className="text-sm font-black italic">구성원 편집 및 관리</h2>
+              <h2 className="text-sm font-black italic">구성원 편집</h2>
             </div>
             <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity font-bold">Manage Members ◀</span>
           </button>
