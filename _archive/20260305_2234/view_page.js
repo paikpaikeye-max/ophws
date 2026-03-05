@@ -112,7 +112,6 @@ export default function ScheduleViewer() {
             }
             for (const task of fixedTasks) {
                 if (roster[`${shift}-${task}-m1`] || roster[`${shift}-${task}-m2`]) return true;
-                if (task === '수술실(OR)' && (roster[`${shift}-${task}-m3`] || roster[`${shift}-${task}-m4`])) return true;
             }
         }
         return false;
@@ -265,12 +264,6 @@ export default function ScheduleViewer() {
                             <div class="task-staffs">
                                 <div class="staff-col">${dayData.roster_data?.[shift + '-' + task + '-m1'] || ''}</div>
                                 <div class="staff-col">${dayData.roster_data?.[shift + '-' + task + '-m2'] || ''}</div>
-                                ${task === '수술실(OR)' && dayData.roster_data?.[shift + '-' + task + '-m3'] ? `
-                                <div class="staff-col">${dayData.roster_data[shift + '-' + task + '-m3']}</div>
-                                ` : ''}
-                                ${task === '수술실(OR)' && dayData.roster_data?.[shift + '-' + task + '-m4'] ? `
-                                <div class="staff-col">${dayData.roster_data[shift + '-' + task + '-m4']}</div>
-                                ` : ''}
                             </div>
                         </div>
                     `).join('');
@@ -287,7 +280,7 @@ export default function ScheduleViewer() {
         }).join('');
 
         const dutyRowsHtml = ['NIGHT-DUTY', 'ONCALL-PROF', 'RETINA-ONCALL'].map(id => {
-            const label = id === 'NIGHT-DUTY' ? '당직전공의' : (id === 'ONCALL-PROF' ? '당직교수' : '망막온콜');
+            const label = id === 'NIGHT-DUTY' ? '당직' : (id === 'ONCALL-PROF' ? '온콜' : '망막');
             return `
             <tr class="duty-row">
                 <td>${label}</td>
@@ -341,7 +334,7 @@ export default function ScheduleViewer() {
                 <section className="grid grid-cols-3 gap-2">
                     {[
                         { label: '당직전공의', id: 'NIGHT-DUTY' },
-                        { label: '당직교수', id: 'ONCALL-PROF' },
+                        { label: '온콜교수', id: 'ONCALL-PROF' },
                         { label: '망막온콜', id: 'RETINA-ONCALL' }
                     ].map(item => (
                         <div key={item.id} className="bg-slate-700 text-white p-2.5 rounded-2xl text-center shadow-md active:scale-95 transition-transform" onClick={() => handleCall(roster[item.id])}>
@@ -403,12 +396,6 @@ export default function ScheduleViewer() {
                                                     <div className="flex gap-1.5">
                                                         <button onClick={() => handleCall(roster[`${shift}-${task}-m1`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m1`])}`}>{roster[`${shift}-${task}-m1`] || '-'}</button>
                                                         <button onClick={() => handleCall(roster[`${shift}-${task}-m2`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m2`])}`}>{roster[`${shift}-${task}-m2`] || '-'}</button>
-                                                        {task === '수술실(OR)' && roster[`${shift}-${task}-m3`] && (
-                                                            <button onClick={() => handleCall(roster[`${shift}-${task}-m3`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m3`])}`}>{roster[`${shift}-${task}-m3`]}</button>
-                                                        )}
-                                                        {task === '수술실(OR)' && roster[`${shift}-${task}-m4`] && (
-                                                            <button onClick={() => handleCall(roster[`${shift}-${task}-m4`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m4`])}`}>{roster[`${shift}-${task}-m4`]}</button>
-                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>

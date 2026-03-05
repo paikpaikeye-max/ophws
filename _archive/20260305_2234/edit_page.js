@@ -280,14 +280,10 @@ export default function UltimateScheduleEditor() {
                     })}
                     {fixedTasks.map(task => (
                       <tr key={task}><td className="p-4 font-black text-slate-700 pl-6 text-[13px]">{task}</td><td className="p-4 text-center text-slate-300 font-bold">-</td>
-                        <td colSpan={2} className="p-1 px-3 border-l border-dashed border-slate-200">
-                          <div className="grid grid-cols-2 gap-2 w-full h-full min-h-[42px]">
-                            {['m1', 'm2', ...(task === '수술실(OR)' ? ['m3', 'm4'] : [])].map(m => {
-                              const id = `${shift}-${task}-${m}`;
-                              return <DroppableSlot key={m} id={id} acceptType="staff">{roster[id] && <DraggableChip id={`slot-${id}`} name={roster[id]} role={getRoleByName(roster[id])} onRemove={() => removeChip(id)} />}</DroppableSlot>
-                            })}
-                          </div>
-                        </td>
+                        {['m1', 'm2'].map(m => {
+                          const id = `${shift}-${task}-${m}`;
+                          return <td key={m} className="p-1 px-3 border-l border-dashed border-slate-200"><DroppableSlot id={id} acceptType="staff">{roster[id] && <DraggableChip id={`slot-${id}`} name={roster[id]} role={getRoleByName(roster[id])} onRemove={() => removeChip(id)} />}</DroppableSlot></td>
+                        })}
                       </tr>
                     ))}
                   </tbody></table>
@@ -295,7 +291,7 @@ export default function UltimateScheduleEditor() {
               ))}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[{ label: '당직전공의', id: 'NIGHT-DUTY', type: 'staff' }, { label: '당직교수', id: 'ONCALL-PROF', type: 'prof' }, { label: '망막온콜', id: 'RETINA-ONCALL', type: 'prof' }].map(item => (
+              {[{ label: '당직전공의', id: 'NIGHT-DUTY', type: 'staff' }, { label: '온콜교수', id: 'ONCALL-PROF', type: 'prof' }, { label: '망막온콜', id: 'RETINA-ONCALL', type: 'prof' }].map(item => (
                 <div key={item.id} className="bg-[#1e293b] p-6 rounded-[2.5rem] text-white shadow-xl border border-slate-700">
                   <p className="text-[13px] font-black text-slate-400 mb-4 uppercase text-center tracking-widest">{item.label}</p>
                   <DroppableSlot id={item.id} acceptType={item.type}>

@@ -281,7 +281,7 @@ export default function UltimateScheduleEditor() {
                     {fixedTasks.map(task => (
                       <tr key={task}><td className="p-4 font-black text-slate-700 pl-6 text-[13px]">{task}</td><td className="p-4 text-center text-slate-300 font-bold">-</td>
                         <td colSpan={2} className="p-1 px-3 border-l border-dashed border-slate-200">
-                          <div className="grid grid-cols-2 gap-2 w-full h-full min-h-[42px]">
+                          <div className={`grid ${task === '수술실(OR)' ? 'grid-cols-4' : 'grid-cols-2'} gap-2 w-full h-full min-h-[42px]`}>
                             {['m1', 'm2', ...(task === '수술실(OR)' ? ['m3', 'm4'] : [])].map(m => {
                               const id = `${shift}-${task}-${m}`;
                               return <DroppableSlot key={m} id={id} acceptType="staff">{roster[id] && <DraggableChip id={`slot-${id}`} name={roster[id]} role={getRoleByName(roster[id])} onRemove={() => removeChip(id)} />}</DroppableSlot>

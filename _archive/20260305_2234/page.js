@@ -32,16 +32,12 @@ export default function LandingPage() {
       const dateStr = `${year}-${month}-${day}`;
 
       // 2. 구성원(연락처 포함) 및 스케줄 동시 조회
-      const [membersRes, profsRes, scheduleRes] = await Promise.all([
+      const [membersRes, scheduleRes] = await Promise.all([
         supabase.from('members').select('name, phone'),
-        supabase.from('professors').select('initial, phone'),
         supabase.from('daily_schedules').select('roster_data').eq('work_date', dateStr).single()
       ]);
 
-      let allMembers = [];
-      if (membersRes.data) allMembers = [...allMembers, ...membersRes.data];
-      if (profsRes.data) allMembers = [...allMembers, ...profsRes.data.map(p => ({ name: p.initial, phone: p.phone }))];
-      setMembers(allMembers);
+      if (membersRes.data) setMembers(membersRes.data);
 
       if (!scheduleRes.error && scheduleRes.data?.roster_data) {
         const roster = scheduleRes.data.roster_data;
@@ -99,9 +95,9 @@ export default function LandingPage() {
           {/* 당직 인원 (클릭 시 전화 기능) */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             {[
-              { label: "당직전공의", name: todayInfo.duty, color: "text-slate-800" },
-              { label: "당직교수", name: todayInfo.oncall, color: "text-blue-600" },
-              { label: "망막온콜", name: todayInfo.retina, color: "text-indigo-600" }
+              { label: "당직", name: todayInfo.duty, color: "text-slate-800" },
+              { label: "온콜", name: todayInfo.oncall, color: "text-blue-600" },
+              { label: "망막", name: todayInfo.retina, color: "text-indigo-600" }
             ].map((item, idx) => (
               <button
                 key={idx}

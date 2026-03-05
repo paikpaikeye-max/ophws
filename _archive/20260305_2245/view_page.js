@@ -265,11 +265,9 @@ export default function ScheduleViewer() {
                             <div class="task-staffs">
                                 <div class="staff-col">${dayData.roster_data?.[shift + '-' + task + '-m1'] || ''}</div>
                                 <div class="staff-col">${dayData.roster_data?.[shift + '-' + task + '-m2'] || ''}</div>
-                                ${task === '수술실(OR)' && dayData.roster_data?.[shift + '-' + task + '-m3'] ? `
-                                <div class="staff-col">${dayData.roster_data[shift + '-' + task + '-m3']}</div>
-                                ` : ''}
-                                ${task === '수술실(OR)' && dayData.roster_data?.[shift + '-' + task + '-m4'] ? `
-                                <div class="staff-col">${dayData.roster_data[shift + '-' + task + '-m4']}</div>
+                                ${task === '수술실(OR)' ? `
+                                <div class="staff-col">${dayData.roster_data?.[shift + '-' + task + '-m3'] || ''}</div>
+                                <div class="staff-col">${dayData.roster_data?.[shift + '-' + task + '-m4'] || ''}</div>
                                 ` : ''}
                             </div>
                         </div>
@@ -403,11 +401,11 @@ export default function ScheduleViewer() {
                                                     <div className="flex gap-1.5">
                                                         <button onClick={() => handleCall(roster[`${shift}-${task}-m1`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m1`])}`}>{roster[`${shift}-${task}-m1`] || '-'}</button>
                                                         <button onClick={() => handleCall(roster[`${shift}-${task}-m2`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m2`])}`}>{roster[`${shift}-${task}-m2`] || '-'}</button>
-                                                        {task === '수술실(OR)' && roster[`${shift}-${task}-m3`] && (
-                                                            <button onClick={() => handleCall(roster[`${shift}-${task}-m3`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m3`])}`}>{roster[`${shift}-${task}-m3`]}</button>
-                                                        )}
-                                                        {task === '수술실(OR)' && roster[`${shift}-${task}-m4`] && (
-                                                            <button onClick={() => handleCall(roster[`${shift}-${task}-m4`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m4`])}`}>{roster[`${shift}-${task}-m4`]}</button>
+                                                        {task === '수술실(OR)' && (
+                                                            <>
+                                                                <button onClick={() => handleCall(roster[`${shift}-${task}-m3`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m3`])}`}>{roster[`${shift}-${task}-m3`] || '-'}</button>
+                                                                <button onClick={() => handleCall(roster[`${shift}-${task}-m4`])} className={`flex-1 bg-white py-2.5 rounded-lg border border-slate-200 ${getNameColorClass(roster[`${shift}-${task}-m4`])}`}>{roster[`${shift}-${task}-m4`] || '-'}</button>
+                                                            </>
                                                         )}
                                                     </div>
                                                 </td>
