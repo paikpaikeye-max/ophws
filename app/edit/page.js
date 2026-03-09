@@ -117,26 +117,11 @@ export default function UltimateScheduleEditor() {
     showToast("진료 외 모든 정보가 초기화되었습니다.");
   };
 
-  // 1. 보안 인증 로직 (최초 1회 실행)
+  // 1. 마운트 시 즉시 활성화 (인증은 middleware가 처리)
   useEffect(() => {
-    if (authChecked.current) return;
-    authChecked.current = true;
-
-    async function checkAuth() {
-      const { data } = await supabase.from('settings').select('value').eq('key', 'admin_password').single();
-      const adminPassword = data?.value || "1234";
-      const userInput = window.prompt("관리자 비밀번호를 입력하세요.");
-
-      if (userInput === adminPassword) {
-        setIsAuthorized(true);
-        setMounted(true); // 인증 성공 후에만 마운트 상태 활성화
-      } else {
-        alert("비밀번호가 틀렸습니다.");
-        router.replace('/');
-      }
-    }
-    checkAuth();
-  }, [router]);
+    setIsAuthorized(true);
+    setMounted(true);
+  }, []);
 
   // 2. 기본 데이터 로드 로직
   useEffect(() => {

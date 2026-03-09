@@ -22,29 +22,11 @@ export default function PersonnelManagement() {
 
   const [newEntry, setNewEntry] = useState({ name: '', initial: '', role: 'Resident', phone: '', email: '', display_order: 999 });
 
-  // [수정] 보안 인증 후 데이터 호출 로직 분리
+  // 인증은 middleware가 처리 -> 바로 데이터 로드
   useEffect(() => {
-    const checkAuth = async () => {
-      if (authChecked.current) return;
-      authChecked.current = true;
-
-      // Supabase에서 settings_password 전용 비밀번호 조회
-      const { data } = await supabase.from('settings').select('value').eq('key', 'settings_password').single();
-      const settingsPassword = data?.value || "5678"; // 기본값 설정
-
-      const userInput = window.prompt("구성원 관리 비밀번호를 입력하세요.");
-
-      if (userInput === settingsPassword) {
-        setIsAuthorized(true);
-        fetchData(); // 인증 성공 시에만 데이터 로드
-      } else {
-        alert("비밀번호가 틀렸습니다.");
-        router.replace('/');
-      }
-    };
-
-    checkAuth();
-  }, [router]);
+    setIsAuthorized(true);
+    fetchData();
+  }, []);
 
   async function fetchData() {
     setLoading(true);

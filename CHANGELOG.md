@@ -1,3 +1,7 @@
 - [2026-03-05] 당직/온콜/망막 라벨 명칭 변경 (전공의/교수), 교수진 전화연결 누락 버그 수정, 수술실(OR) 배치 슬롯 4칸으로 확장 (수정파일: app/page.js, app/view/page.js, app/edit/page.js)
 - [2026-03-05] 수술실(OR) 슬롯 레이아웃 2x2 변경 및 뷰어/인쇄 페이지 동적 렌더링 적용 (수정파일: app/view/page.js, app/edit/page.js)
 - [2026-03-06] 앱 아이콘(favicon.ico) 교체: 기존 ophws_icon.png의 배경을 투명처리하여 적용 (수정파일: app/favicon.ico)
+- [2026-03-07] 3단계 권한 시스템(approved/editor/admin) 구현, 비밀번호 제거 후 middleware 기반 접근 통제, 로그아웃 버튼 하단 이동, 가입 승인/구성원 편집 버튼 분리, admin 대시보드 editor 역할 추가 (수정파일: app/page.js, app/edit/page.js, app/settings/page.js, app/admin/users/page.js, middleware.js)
+- [2026-03-07] 가입 승인 시스템 구현: 회원가입 정보입력(/register), 승인대기(/pending), 관리자 대시보드(/admin/users) (신규: app/register/page.js, app/pending/page.js, app/admin/users/page.js, supabase_setup.sql)
+- [2026-03-07] Supabase Middleware 기반 접근 통제 로직 및 Google 소셜 로그인 페이지 구현 (수정파일: middleware.js, utils/supabase/server.js, app/login/page.js, app/auth/callback/route.js, components/LogoutButton.js, app/page.js)
+- [2026-03-07] 관리자 페이지 사용자 삭제 기능 및 최소 관리자 보호 로직 추가, 가입 신청 폼 UI 개선 및 조건부 입력 필드(자기소개/연락처) 추가, 거절 후 재신청 RLS 에러 해결 (수정파일: app/admin/users/page.js, app/register/page.js, app/rejected/page.js, supabase_register_update.sql)

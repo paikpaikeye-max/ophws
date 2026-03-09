@@ -2,12 +2,15 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
+import LogoutButton from '@/components/LogoutButton';
 
 export default function LandingPage() {
   const router = useRouter();
   const [todayInfo, setTodayInfo] = useState({ duty: "-", oncall: "-", retina: "-", vacation: [] });
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState(null);
 
   // 화면 표시용 날짜
   const todayStr = new Date().toLocaleDateString('ko-KR', {
@@ -57,6 +60,20 @@ export default function LandingPage() {
       setLoading(false);
     }
     fetchData();
+
+    // Fetch user role
+    const authSupabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+    async function fetchRole() {
+      const { data: { user } } = await authSupabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await authSupabase.from('user_profiles').select('status').eq('id', user.id).single();
+        if (profile) setUserRole(profile.status);
+      }
+    }
+    fetchRole();
   }, []);
 
   // 전화번호 찾기 함수
@@ -146,25 +163,42 @@ export default function LandingPage() {
             <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-white/10 to-transparent"></div>
           </button>
 
-          <button onClick={() => router.push('/edit')} className="group w-full bg-white hover:bg-slate-800 hover:text-white text-slate-800 p-6 rounded-[2rem] shadow-md border border-slate-200 transition-all flex items-center justify-between">
-            <div className="text-left">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-500">Admin Mode</span>
-              <h2 className="text-xl font-black italic">배치표 작성 및 수정</h2>
-            </div>
-            <span className="text-3xl grayscale group-hover:grayscale-0 transition-all">📝</span>
-          </button>
+          {(userRole === 'editor' || userRole === 'admin') && (
+            <button onClick={() => router.push('/edit')} className="group w-full bg-white hover:bg-slate-800 hover:text-white text-slate-800 p-6 rounded-[2rem] shadow-md border border-slate-200 transition-all flex items-center justify-between">
+              <div className="text-left">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-500">Editor Mode</span>
+                <h2 className="text-xl font-black italic">배치표 작성 및 수정</h2>
+              </div>
+              <span className="text-3xl grayscale group-hover:grayscale-0 transition-all">📝</span>
+            </button>
+          )}
 
-          <button onClick={() => router.push('/settings')} className="group w-full bg-slate-100 hover:bg-slate-200 text-slate-600 p-5 rounded-[2rem] transition-all flex items-center justify-between px-8">
-            <div className="flex items-center gap-4">
-              <span className="text-xl">⚙️</span>
-              <h2 className="text-sm font-black italic">구성원 편집</h2>
-            </div>
-            <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity font-bold">Manage Members ◀</span>
-          </button>
+          {(userRole === 'editor' || userRole === 'admin') && (
+            <button onClick={() => router.push('/settings')} className="group w-full bg-slate-100 hover:bg-slate-200 text-slate-600 p-5 rounded-[2rem] transition-all flex items-center justify-between px-8">
+              <div className="flex items-center gap-4">
+                <span className="text-xl">⚙️</span>
+                <h2 className="text-sm font-black italic">구성원 편집</h2>
+              </div>
+              <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity font-bold">Manage Members ◀</span>
+            </button>
+          )}
+
+          {userRole === 'admin' && (
+            <button onClick={() => router.push('/admin/users')} className="group w-full bg-amber-50 hover:bg-amber-100 text-amber-800 p-5 rounded-[2rem] transition-all flex items-center justify-between px-8 border border-amber-200">
+              <div className="flex items-center gap-4">
+                <span className="text-xl">🛡️</span>
+                <h2 className="text-sm font-black italic">가입 승인 관리</h2>
+              </div>
+              <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity font-bold">Admin ◀</span>
+            </button>
+          )}
         </nav>
       </div>
 
-      <footer className="mt-16 text-center">
+      <footer className="mt-16 text-center space-y-4">
+        <div className="flex justify-center">
+          <LogoutButton />
+        </div>
         <p className="text-[10px] font-bold text-slate-300 tracking-widest uppercase mb-1">Ophws Medical Information System</p>
         <p className="text-[9px] text-slate-400 font-medium">© 2026 OPHWS Roster v2.0. All Rights Reserved.</p>
       </footer>
