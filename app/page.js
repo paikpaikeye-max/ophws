@@ -112,6 +112,7 @@ export default function LandingPage() {
         <h1 className="text-4xl font-black text-slate-800 tracking-tighter mb-2">
           OPHWS
         </h1>
+        <p className="text-sm font-bold text-slate-500 mb-2">{todayStr}</p>
       </header>
 
       <div className="w-full max-w-md space-y-4">
