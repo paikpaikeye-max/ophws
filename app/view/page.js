@@ -329,7 +329,9 @@ export default function ScheduleViewer() {
             <header className="sticky top-0 bg-white/80 backdrop-blur-md z-30 border-b p-4 flex justify-between items-center shadow-sm">
                 <button onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} className="p-2 text-xl font-bold">◀</button>
                 <div className="text-center cursor-pointer active:opacity-50" onClick={() => setShowDateModal(true)}>
-                    <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">OPHWS Schedule</p>
+                    <div className="text-sm font-black text-slate-800 tracking-tighter mb-0.5">
+                        OPHWS <span className="text-blue-600">Schedule</span>
+                    </div>
                     <h1 className="text-xl font-black">{formatDate(selectedDate)}</h1>
                     <p className="text-[9px] text-slate-400 font-bold tracking-tight">터치하여 날짜 선택</p>
                 </div>

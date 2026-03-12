@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;900&display=swap');
+
+/* 1. 기본 설정 및 레이아웃 */
+:root { font-size: 18px; }
+body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; display: flex; overflow: hidden; }
+
+.sidebar { width: 280px; background: #1e293b; height: 100vh; flex-shrink: 0; z-index: 100; transition: width 0.3s; }
+.sidebar.collapsed { width: 80px; }
+.content { flex: 1; height: 100vh; overflow-y: auto; padding: 2rem; word-break: keep-all; position: relative; }
+
+.nav-item { display: flex; align-items: center; padding: 1rem 1.5rem; color: #94a3b8; cursor: pointer; border-radius: 12px; margin: 0.25rem 1rem; transition: all 0.2s; }
+.nav-item.active { background: #4f46e5; color: white; }
+.glass-card { background: white; border-radius: 24px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+
+/* --- 설정창 모달 (이 부분 전체를 교체하세요) --- */
+.modal { 
+    display: none; /* 초기 상태 숨김 */
+    position: fixed; /* 화면에 박제 */
+    inset: 0; /* 상하좌우 0 */
+    background: rgba(0, 0, 0, 0.6); 
+    z-index: 9999; /* 최상단 레이어 */
+    align-items: center; 
+    justify-content: center; 
+    backdrop-filter: blur(4px); 
+}
+
+/* JS에서 설정창을 켤 때 이 클래스를 추가합니다 */
+.modal.active { display: flex !important; }
+
+.modal-content {
+    background: white;
+    border-radius: 24px;
+    width: 90%;
+    max-width: 850px;
+    height: 80vh;
+    display: flex; /* 내부 사이드바와 컨텐츠를 가로로 배치 */
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+/* 설정창 좌측 사이드바 (스크린샷에서 깨진 부분) */
+.modal-sidebar {
+    width: 220px;
+    background-color: #f8fafc !important; /* 배경색 강제 지정 */
+    border-right: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 0;
+    flex-shrink: 0; /* 너비 고정 */
+}
+
+.modal-tab {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+    border-left: 4px solid transparent;
+}
+
+.modal-tab.active {
+    background: white;
+    color: #4f46e5;
+    border-left: 4px solid #4f46e5;
+}
+
+/* 3. 주사 일정 계산기 전용 스타일 */
+.result-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
+    width: 100%;
+}
+
+.date-adj-outer-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+.date-adj-outer-btn:hover { border-color: #4f46e5; color: #4f46e5; background: #f8fafc; opacity: 1; }
+
+.result-card-compact {
+    background-color: #4f46e5;
+    padding: 0.8rem 1.5rem;
+    border-radius: 1.25rem;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.2);
+    min-width: fit-content;
+}
+.result-date-text { font-size: 1.4rem; font-weight: 900; letter-spacing: -0.02em; }
+
+.plan-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100px;
+    margin: 0 auto;
+}
+.offset-badge {
+    position: absolute;
+    right: 6px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 10;
+}
+.offset-plus { background: #fee2e2; color: #ef4444; }
+.offset-minus { background: #dcfce7; color: #22c55e; }
+
+/* 4. 주사 비용 계산기 & 테이블 */
+.diag-tab { padding: 12px 24px; border-radius: 12px 12px 0 0; font-weight: 900; font-size: 0.9rem; color: #64748b; background: #f1f5f9; cursor: pointer; border: none; transition: all 0.2s; border-bottom: 3px solid transparent; }
+.diag-tab.active { background: white; color: #4f46e5; border-bottom: 3px solid #4f46e5; box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05); }
+
+table { width: 100%; border-collapse: collapse; }
+table th { background: #f8fafc; padding: 16px; border: 1px solid #e2e8f0; font-size: 1rem; font-weight: 900; color: #334155; }
+table td { padding: 10px; border: 1px solid #e2e8f0; text-align: center; }
+
+/* 5. 공통 컴포넌트 */
+.input-base { width: 100%; padding: 0.75rem; border-radius: 12px; border: 2px solid #e2e8f0; outline: none; }
+#toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 50px; padding: 16px; position: fixed; z-index: 10000; left: 50%; bottom: 30px; transform: translateX(-50%); }
+#toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 1.5s; }
+
+@keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+@keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+.animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

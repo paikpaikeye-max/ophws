@@ -19,45 +19,50 @@ export default function LandingPage() {
 
   useEffect(() => {
     async function fetchData() {
-      // 1. 한국 표준시(KST) 기준 현재 시간 및 타겟 날짜 계산
-      const now = new Date();
-      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-      const kstNow = new Date(utc + (9 * 60 * 60 * 1000));
+      try {
+        // 1. 한국 표준시(KST) 기준 현재 시간 및 타겟 날짜 계산
+        const now = new Date();
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const kstNow = new Date(utc + (9 * 60 * 60 * 1000));
 
-      const targetDate = new Date(kstNow);
-      if (kstNow.getHours() < 8) {
-        targetDate.setDate(kstNow.getDate() - 1);
+        const targetDate = new Date(kstNow);
+        if (kstNow.getHours() < 8) {
+          targetDate.setDate(kstNow.getDate() - 1);
+        }
+
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        // 2. 구성원(연락처 포함) 및 스케줄 동시 조회
+        const [membersRes, profsRes, scheduleRes] = await Promise.all([
+          supabase.from('members').select('name, phone'),
+          supabase.from('professors').select('initial, phone'),
+          supabase.from('daily_schedules').select('roster_data').eq('work_date', dateStr).single()
+        ]);
+
+        let allMembers = [];
+        if (membersRes.data) allMembers = [...allMembers, ...membersRes.data];
+        if (profsRes.data) allMembers = [...allMembers, ...profsRes.data.map(p => ({ name: p.initial, phone: p.phone }))];
+        setMembers(allMembers);
+
+        if (!scheduleRes.error && scheduleRes.data?.roster_data) {
+          const roster = scheduleRes.data.roster_data;
+          setTodayInfo({
+            duty: roster["NIGHT-DUTY"] || "미정",
+            oncall: roster["ONCALL-PROF"] || "미정",
+            retina: roster["RETINA-ONCALL"] || "미정",
+            vacation: Array.isArray(roster["VACATION-SLOT"]) ? roster["VACATION-SLOT"] : []
+          });
+        } else {
+          setTodayInfo({ duty: "미정", oncall: "미정", retina: "미정", vacation: [] });
+        }
+      } catch (err) {
+        console.warn('fetchData error:', err);
+      } finally {
+        setLoading(false);
       }
-
-      const year = targetDate.getFullYear();
-      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-      const day = String(targetDate.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-
-      // 2. 구성원(연락처 포함) 및 스케줄 동시 조회
-      const [membersRes, profsRes, scheduleRes] = await Promise.all([
-        supabase.from('members').select('name, phone'),
-        supabase.from('professors').select('initial, phone'),
-        supabase.from('daily_schedules').select('roster_data').eq('work_date', dateStr).single()
-      ]);
-
-      let allMembers = [];
-      if (membersRes.data) allMembers = [...allMembers, ...membersRes.data];
-      if (profsRes.data) allMembers = [...allMembers, ...profsRes.data.map(p => ({ name: p.initial, phone: p.phone }))];
-      setMembers(allMembers);
-
-      if (!scheduleRes.error && scheduleRes.data?.roster_data) {
-        const roster = scheduleRes.data.roster_data;
-        setTodayInfo({
-          duty: roster["NIGHT-DUTY"] || "미정",
-          oncall: roster["ONCALL-PROF"] || "미정",
-          retina: roster["RETINA-ONCALL"] || "미정",
-          vacation: Array.isArray(roster["VACATION-SLOT"]) ? roster["VACATION-SLOT"] : []
-        });
-      } else {
-        setTodayInfo({ duty: "미정", oncall: "미정", retina: "미정", vacation: [] });
-      }
-      setLoading(false);
     }
     fetchData();
 
@@ -67,10 +72,15 @@ export default function LandingPage() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
     async function fetchRole() {
-      const { data: { user } } = await authSupabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await authSupabase.from('user_profiles').select('status').eq('id', user.id).single();
-        if (profile) setUserRole(profile.status);
+      try {
+        const { data: { user }, error } = await authSupabase.auth.getUser();
+        if (error) console.warn('fetchRole auth error:', error.message);
+        if (user) {
+          const { data: profile } = await authSupabase.from('user_profiles').select('status').eq('id', user.id).single();
+          if (profile) setUserRole(profile.status);
+        }
+      } catch (err) {
+        console.warn('fetchRole error:', err);
       }
     }
     fetchRole();
@@ -95,14 +105,13 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col items-center justify-center p-6">
-      <header className="text-center mb-10 animate-fade-in">
-        <div className="inline-block bg-blue-600 text-white text-[10px] font-black px-3 py-1 rounded-full mb-4 tracking-widest uppercase">
-          Smart Medical Roster
+      <header className="text-center mb-4 animate-fade-in">
+        <div className="flex items-center justify-center mb-2">
+          <span className="text-slate-500 font-bold text-xs tracking-tight">부산백병원 안과 워크스테이션</span>
         </div>
         <h1 className="text-4xl font-black text-slate-800 tracking-tighter mb-2">
-          OPHWS <span className="text-blue-600">Schedule</span>
+          OPHWS
         </h1>
-        <p className="text-slate-500 font-medium text-sm">{todayStr}</p>
       </header>
 
       <div className="w-full max-w-md space-y-4">
@@ -156,17 +165,26 @@ export default function LandingPage() {
         <nav className="space-y-3">
           <button onClick={() => router.push('/view')} className="group w-full bg-blue-600 hover:bg-blue-700 text-white p-6 rounded-[2rem] shadow-lg shadow-blue-600/20 transition-all flex items-center justify-between overflow-hidden relative">
             <div className="text-left z-10">
-              <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">Viewer Mode</span>
+              <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">SCHEDULE VIEWER</span>
               <h2 className="text-xl font-black italic">배치표 확인하기</h2>
             </div>
             <span className="text-3xl opacity-30 group-hover:translate-x-2 transition-transform z-10">🔍</span>
             <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-white/10 to-transparent"></div>
           </button>
 
+          <button onClick={() => router.push('/assistant')} className="group w-full bg-white hover:bg-slate-800 hover:text-white text-slate-800 p-6 rounded-[2rem] shadow-md border border-slate-200 transition-all flex items-center justify-between overflow-hidden relative">
+            <div className="text-left z-10">
+              <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">Clinic Assistant</span>
+              <h2 className="text-xl font-black italic">진료도우미 연결</h2>
+            </div>
+            <span className="text-3xl opacity-30 group-hover:translate-x-2 transition-transform z-10">🏥</span>
+            <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-slate-200/20 to-transparent"></div>
+          </button>
+
           {(userRole === 'editor' || userRole === 'admin') && (
             <button onClick={() => router.push('/edit')} className="group w-full bg-white hover:bg-slate-800 hover:text-white text-slate-800 p-6 rounded-[2rem] shadow-md border border-slate-200 transition-all flex items-center justify-between">
               <div className="text-left">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-500">Editor Mode</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-500">SCHEDULE EDITOR</span>
                 <h2 className="text-xl font-black italic">배치표 작성 및 수정</h2>
               </div>
               <span className="text-3xl grayscale group-hover:grayscale-0 transition-all">📝</span>
