@@ -535,15 +535,13 @@ function CostSection({ config }) {
     );
 }
 
-// --- Dry AMD 위험도 컴포넌트 (원본 score.js 포팅 및 Report 42 반영) ---
-const RISK_RATES_NO_RPD = [0.3, 4, 12, 27, 50];
-const RISK_RATES_RPD = [3, 8, 29, 59, 72];
+// --- Dry AMD 위험도 컴포넌트 (원본 score.js 포팅) ---
+const RISK_RATES = [0.5, 3, 12, 25, 50];
 
 function RiskSection() {
     const [drusen, setDrusen] = useState({ R: 'none', L: 'none' });
     const [pigment, setPigment] = useState({ R: false, L: false });
     const [advanced, setAdvanced] = useState({ R: false, L: false });
-    const [rpd, setRpd] = useState({ R: false, L: false });
 
     // 드루젠 체크 (라디오 그룹처럼 동작)
     const handleDrusen = (eye, size) => {
@@ -592,16 +590,13 @@ function RiskSection() {
         return total;
     };
 
-    const hasRPD = rpd.R || rpd.L;
-    const currentRates = hasRPD ? RISK_RATES_RPD : RISK_RATES_NO_RPD;
     const score = calcScore();
-    const risk = score >= 0 ? currentRates[score] : null;
+    const risk = score >= 0 ? RISK_RATES[score] : null;
 
     const handleReset = () => {
         setDrusen({ R: 'none', L: 'none' });
         setPigment({ R: false, L: false });
         setAdvanced({ R: false, L: false });
-        setRpd({ R: false, L: false });
     };
 
     // 눈별 체크박스 패널
@@ -632,12 +627,6 @@ function RiskSection() {
                     </label>
                 </div>
                 <div className="pt-2 border-t">
-                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold text-slate-600">
-                        <input type="checkbox" checked={rpd[eye]} onChange={e => setRpd(prev => ({ ...prev, [eye]: e.target.checked }))} className="w-4 h-4" />
-                        Reticular Pseudodrusen (RPD)
-                    </label>
-                </div>
-                <div className="pt-2 border-t">
                     <label className="flex items-center gap-2 text-xs cursor-pointer font-black text-red-600">
                         <input type="checkbox" checked={advanced[eye]} onChange={e => handleAdvanced(eye, e.target.checked)} disabled={isAdvOther} className="w-4 h-4" />
                         Advanced AMD (Wet/GA)
@@ -655,7 +644,7 @@ function RiskSection() {
                     <header className="flex justify-between items-center border-b pb-3">
                         <div>
                             <h2 className="text-xl font-black text-slate-800 italic">AREDS Simplified Severity Scale</h2>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Ref: AREDS REPORT NO. 18 & 42</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Ref: AREDS Report No. 18</p>
                         </div>
                         <button onClick={handleReset} className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 text-[10px] font-bold rounded-lg transition-colors">
                             <i className="fa-solid fa-rotate-left mr-1"></i> RESET
@@ -694,59 +683,30 @@ function RiskSection() {
                     </div>
                 </div>
 
-                {/* 우측: Graphs */}
+                {/* 우측: Figure 5 + Figure 6 */}
                 <div className="w-1/2 flex flex-col gap-4">
                     <div className="glass-card flex-1 p-5 flex flex-col">
-                        <p className="text-[10px] font-black text-slate-400 mb-2 uppercase italic">Cumulative incidence of advanced AMD by Year</p>
-                        <div className="flex-1 bg-white border border-slate-100 rounded-lg flex items-center justify-center relative overflow-hidden flex-row gap-2 p-2">
+                        <p className="text-[10px] font-black text-slate-400 mb-2 uppercase italic">Figure 5. Cumulative incidence of advanced AMD by Year</p>
+                        <div className="flex-1 bg-white border border-slate-100 rounded-lg flex items-center justify-center relative overflow-hidden">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src="/report18_fig5.png" alt="AREDS Fig 5" className="h-full w-1/2 object-contain rounded" />
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src="/report42_fig4.png" alt="AREDS Fig 4" className="h-full w-1/2 object-contain rounded" />
-                            <div className="absolute bottom-2 right-2 text-[8px] text-slate-400 font-bold bg-white/80 px-2 py-1 rounded shadow-sm">
-                                AREDS report 18 figure 5 / AREDS report 42 figure 4
-                            </div>
+                            <img src="/fig5.png" alt="AREDS Fig 5" className="max-h-full object-contain" />
+                            <div className="absolute bottom-2 right-2 text-[8px] text-slate-300">Source: AREDS Report No. 18, Fig 5.</div>
                         </div>
                     </div>
                     <div className="glass-card flex-1 p-5 flex flex-col">
-                        <p className="text-[10px] font-black text-slate-400 mb-2 uppercase italic flex justify-between">
-                            <span>5-Year Progression Risk by Score</span>
-                            <span className="flex gap-3">
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-blue-500 rounded-sm"></span> No RPD</span>
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-red-400 rounded-sm"></span> With RPD</span>
-                            </span>
-                        </p>
-                        <div className="flex-1 flex items-end justify-around pb-6 bg-slate-50/50 rounded-lg pt-4 px-2 relative min-h-[160px]">
-                            {score >= 0 && [0,1,2,3,4].map((i) => {
+                        <p className="text-[10px] font-black text-slate-400 mb-2 uppercase italic">Figure 6. 5-Year Progression Risk by Score</p>
+                        <div className="flex-1 flex items-end justify-around pb-6 bg-slate-50/50 rounded-lg">
+                            {score >= 0 && RISK_RATES.map((rate, i) => {
+                                const height = (rate * 4) + 10;
                                 const isSelected = i === score;
-                                const rateNo = RISK_RATES_NO_RPD[i];
-                                const rateYes = RISK_RATES_RPD[i];
-                                const heightNo = (rateNo * 1.5) + 10;
-                                const heightYes = (rateYes * 1.5) + 10;
-                                
                                 return (
-                                    <div key={i} className="flex flex-col items-center gap-1 w-full max-w-[80px] h-full justify-end">
-                                        <div className="flex items-end justify-center w-full gap-3 relative">
-                                            {/* No RPD */}
-                                            <div className="flex flex-col items-center justify-end group">
-                                                <span className={`text-[10px] font-bold mb-1 transition-all ${isSelected && !hasRPD ? 'text-blue-600' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`}>{rateNo}%</span>
-                                                <div
-                                                    style={{ height: `${heightNo}px`, width: '28px' }}
-                                                    className={`rounded-t-md transition-all duration-500 ${isSelected && !hasRPD ? 'bg-blue-500 shadow-lg scale-110' : 'bg-slate-200'}`}
-                                                    title={`Score ${i} (No RPD): ${rateNo}%`}
-                                                ></div>
-                                            </div>
-                                            {/* With RPD */}
-                                            <div className="flex flex-col items-center justify-end group">
-                                                <span className={`text-[10px] font-bold mb-1 transition-all ${isSelected && hasRPD ? 'text-red-500' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`}>{rateYes}%</span>
-                                                <div
-                                                    style={{ height: `${heightYes}px`, width: '28px' }}
-                                                    className={`rounded-t-md transition-all duration-500 ${isSelected && hasRPD ? 'bg-red-400 shadow-lg scale-110' : 'bg-slate-300'}`}
-                                                    title={`Score ${i} (With RPD): ${rateYes}%`}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                        <span className={`text-[11px] font-black mt-3 ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`}>{i}점</span>
+                                    <div key={i} className="flex flex-col items-center gap-2">
+                                        <span className={`text-[10px] font-bold ${isSelected ? 'text-indigo-600' : 'text-slate-300'}`}>{rate}%</span>
+                                        <div
+                                            style={{ height: `${height}px`, width: '40px' }}
+                                            className={`rounded-t-md transition-all duration-500 ${isSelected ? 'bg-indigo-600 shadow-lg' : 'bg-slate-200'}`}
+                                        ></div>
+                                        <span className={`text-[10px] font-bold ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`}>{i}점</span>
                                     </div>
                                 );
                             })}

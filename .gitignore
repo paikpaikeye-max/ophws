@@ -42,3 +42,7 @@ next-env.d.ts
 
 # secrets
 google_OAuth.json
+
+# custom ignore folders
+진료도우미/
+참고자료/
