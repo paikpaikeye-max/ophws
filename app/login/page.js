@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 
 export default function LoginPage() {
     const [loading, setLoading] = useState(false)
     const [errorMsg, setErrorMsg] = useState('')
+    const searchParams = useSearchParams()
 
     // Create Supabase client for browser
     const supabase = createBrowserClient(
@@ -26,6 +28,7 @@ export default function LoginPage() {
                 provider: 'google',
                 options: {
                     redirectTo: redirectTo,
+                    queryParams: searchParams.get('switch') === '1' ? { prompt: 'select_account' } : undefined,
                 },
             })
 

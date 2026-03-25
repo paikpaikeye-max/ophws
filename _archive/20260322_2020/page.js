@@ -1311,19 +1311,7 @@ function IolSection() {
     const setCurrentRecs = toricNeeded ? setRecsB : setRecsA;
 
     const setRec = (id, val) => {
-        setCurrentRecs(prev => {
-            // 이미 선택된 상태라면 선택 해제(toggle off)
-            if (prev[id] === val) {
-                const newState = { ...prev };
-                delete newState[id];
-                return newState;
-            }
-            return { ...prev, [id]: val };
-        });
-    };
-
-    const handleReset = () => {
-        setCurrentRecs({});
+        setCurrentRecs(prev => ({ ...prev, [id]: val }));
     };
 
     const printableItems = currentGroup.filter(iol => {
@@ -1334,7 +1322,7 @@ function IolSection() {
     const recLabel = (val) => {
         if (val === 'recommend') return '추천';
         if (val === 'possible') return '선택가능';
-        return '';
+        return '비추천';
     };
 
     const handlePrint = () => {
@@ -1350,63 +1338,67 @@ function IolSection() {
 
         const css = `
         <style>
-            @page { size: A4 portrait; margin: 10mm 15mm; }
+            @page { size: A4 portrait; margin: 12mm 15mm; }
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #1e293b; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .page { max-width: 210mm; margin: 0 auto; padding: 5px 15px; }
-            .header { text-align: center; border-bottom: 3px solid #1e293b; padding-bottom: 8px; margin-bottom: 10px; }
+            body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #1e293b; line-height: 1.6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .page { max-width: 210mm; margin: 0 auto; padding: 20px; }
+            .header { text-align: center; border-bottom: 3px solid #1e293b; padding-bottom: 16px; margin-bottom: 20px; }
             .header h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
-            .patient-info { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 18px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 10px; font-size: 16px; font-weight: 900; }
+            .patient-info { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 12px 18px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px; font-size: 13px; }
             .patient-info .left { display: flex; gap: 24px; }
-            .intro { font-size: 11.5px; color: #475569; margin-bottom: 8px; line-height: 1.5; }
+            .patient-info .item label { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block; }
+            .patient-info .item span { font-size: 16px; font-weight: 900; }
+            .patient-info .eye-tag { background: #e0e7ff; color: #4338ca; padding: 2px 12px; border-radius: 6px; font-weight: 900; border: 1px solid #c7d2fe; }
+            .group-label { font-size: 12px; font-weight: 700; color: #6366f1; background: #eef2ff; display: inline-block; padding: 4px 14px; border-radius: 20px; border: 1px solid #c7d2fe; margin-bottom: 14px; }
+            .intro { font-size: 13px; color: #475569; margin-bottom: 18px; line-height: 1.8; }
             .intro strong { color: #1e293b; }
-            .lens-card { border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 18px 10px; margin-top: 10px; margin-bottom: 8px; page-break-inside: avoid; position: relative; }
+            .lens-card { border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 14px; page-break-inside: avoid; position: relative; }
             .lens-card.is-recommend { border-color: #6366f1; background: #fafaff; }
-            .badge { font-size: 10px; font-weight: 900; padding: 2px 10px; border-radius: 6px; letter-spacing: 0.5px; border: 1px solid rgba(0,0,0,0.1); margin-left: 8px; vertical-align: middle; }
+            .lens-card .badge { position: absolute; top: -10px; right: 14px; font-size: 10px; font-weight: 900; padding: 3px 12px; border-radius: 20px; letter-spacing: 0.5px; }
             .badge-recommend { background: #6366f1; color: white; }
             .badge-possible { background: #f59e0b; color: white; }
-            .lens-header { display: flex; align-items: center; margin-bottom: 8px; padding-bottom: 0; }
-            .lens-name { font-size: 19px; font-weight: 900; color: #1e293b; }
-            .lens-feature { font-size: 12.5px; color: #64748b; font-weight: 700; flex-grow: 1; text-align: right; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-            .info-box { background: white; padding: 10px 14px; }
-            .info-box:not(:last-child) { border-right: 1px solid #e2e8f0; }
-            .info-box h4 { font-size: 13.5px; font-weight: 900; margin-bottom: 6px; color: #1e293b; }
-            .info-box ul { font-size: 12.5px; font-weight: 600; color: #334155; padding-left: 15px; line-height: 1.4; list-style-type: disc; }
+            .lens-name { font-size: 17px; font-weight: 900; margin-bottom: 2px; }
+            .lens-feature { font-size: 12px; color: #64748b; font-weight: 700; margin-bottom: 10px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+            .info-box { background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 8px; padding: 10px 12px; }
+            .info-box h4 { font-size: 11px; font-weight: 900; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+            .info-box h4 .icon { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; }
+            .icon-pro { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+            .icon-con { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+            .info-box ul { font-size: 11px; font-weight: 600; color: #475569; padding-left: 16px; }
             .info-box li { margin-bottom: 3px; }
-            .footer { border-top: 3px solid #1e293b; padding-top: 8px; margin-top: 10px; text-align: center; }
-            .footer .disclaimer { font-size: 11.5px; color: #64748b; font-weight: 700; }
+            .target-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 12px; font-size: 11px; }
+            .target-box strong { font-size: 10px; color: #15803d; }
+            .target-box p { color: #475569; font-weight: 600; margin-top: 2px; }
+            .footer { border-top: 3px solid #1e293b; padding-top: 14px; margin-top: 28px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .footer .disclaimer { font-size: 10px; color: #94a3b8; font-weight: 600; line-height: 1.6; }
+            .footer .signature { font-size: 14px; font-weight: 900; display: flex; align-items: flex-end; gap: 12px; }
+            .footer .signature .line { width: 140px; border-bottom: 2px solid #94a3b8; }
         </style>`;
 
         const lensCardsHtml = printableItems.map(iol => {
             const rec = currentRecs[iol.id];
             const isRecommend = rec === 'recommend';
             const badgeClass = isRecommend ? 'badge-recommend' : 'badge-possible';
-            const badgeText = isRecommend ? '추천' : '선택가능';
-            
-            // "적합한 분" 텍스트를 쉼표 기준으로 나누어 리스트화
-            const targetItems = iol.target.split(',').map(t => t.trim()).filter(t => t);
-            
+            const badgeText = isRecommend ? '✓ 추천' : '선택가능';
             return `
             <div class="lens-card ${isRecommend ? 'is-recommend' : ''}">
-                <div class="lens-header">
-                    <div class="lens-name">${iol.name}</div>
-                    <div class="badge ${badgeClass}">${badgeText}</div>
-                    <div class="lens-feature">${iol.feature}</div>
-                </div>
+                <div class="badge ${badgeClass}">${badgeText}</div>
+                <div class="lens-name">${iol.name}</div>
+                <div class="lens-feature">${iol.feature}</div>
                 <div class="info-grid">
                     <div class="info-box">
-                        <h4>장점</h4>
+                        <h4><span class="icon icon-pro">✓</span> 장점</h4>
                         <ul>${iol.pros.map(p => '<li>' + p + '</li>').join('')}</ul>
                     </div>
                     <div class="info-box">
-                        <h4>단점</h4>
+                        <h4><span class="icon icon-con">!</span> 참고사항</h4>
                         <ul>${iol.cons.map(c => '<li>' + c + '</li>').join('')}</ul>
                     </div>
-                    <div class="info-box">
-                        <h4>적합한 분</h4>
-                        <ul>${targetItems.map(t => '<li>' + t + '</li>').join('')}</ul>
-                    </div>
+                </div>
+                <div class="target-box">
+                    <strong>▸ 이런 분께 적합합니다</strong>
+                    <p>${iol.target}</p>
                 </div>
             </div>`;
         }).join('');
@@ -1421,18 +1413,24 @@ function IolSection() {
                     </div>
                     <div class="patient-info">
                         <div class="left">
-                            <span>${patientInfo.name || 'OOO'} 님</span>
-                            <span>${patientInfo.eye}</span>
+                            <div class="item"><label>Name</label><span>${patientInfo.name || 'OOO'} 님</span></div>
+                            <div class="item"><label>Eye</label><span class="eye-tag">${patientInfo.eye}</span></div>
                         </div>
-                        <div><span>${todayStr}</span></div>
+                        <div class="item" style="text-align:right"><label>Date</label><span style="font-size:13px">${todayStr}</span></div>
                     </div>
+                    <div class="group-label">${groupLabel}</div>
                     <div class="intro">
-                        <p>성공적인 백내장 수술을 위해 기존의 혼탁해진 수정체를 제거하고, <strong>새로운 인공수정체를 삽입</strong>해야 합니다. 환자분의 정밀 검사 결과를 바탕으로, 아래와 같이 <strong>가장 적합한 인공수정체 종류를 안내</strong>해 드립니다. 각 렌즈의 특징을 확인하시고 수술 전 최종적으로 어떤 렌즈를 삽입할지 결정해주시기 바랍니다.</p>
+                        <p>성공적인 백내장 수술을 위해 기존의 혼탁해진 수정체를 제거하고, <strong>새로운 인공수정체를 삽입</strong>해야 합니다.</p>
+                        <p>환자분의 정밀 검사 결과를 바탕으로, 아래와 같이 <strong>가장 적합한 인공수정체 종류를 안내</strong>해 드립니다. 각 렌즈의 특징을 확인하시고 수술 전 최종적으로 어떤 렌즈를 삽입할지 결정해주시기 바랍니다.</p>
                     </div>
                     ${lensCardsHtml}
                     <div class="footer">
                         <div class="disclaimer">
-                            * 본 안내문은 환자분의 직관적인 이해를 돕기 위한 참고자료이며, 최종 수술 결과는 눈 상태에 따라 개인차가 있을 수 있습니다.
+                            * 본 안내문은 환자분의 직관적인 이해를 돕기 위한 참고자료이며,<br/>최종 수술 결과는 눈 상태에 따라 개인차가 있을 수 있습니다.
+                        </div>
+                        <div class="signature">
+                            <span>주치의 서명 :</span>
+                            <div class="line"></div>
                         </div>
                     </div>
                 </div>
@@ -1446,7 +1444,8 @@ function IolSection() {
 
     const recStyles = {
         recommend: { bg: 'bg-green-100', border: 'border-green-400', text: 'text-green-700' },
-        possible:  { bg: 'bg-orange-100', border: 'border-orange-400', text: 'text-orange-700' }
+        possible:  { bg: 'bg-orange-100', border: 'border-orange-400', text: 'text-orange-700' },
+        none:      { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-700' }
     };
 
     return (
@@ -1472,7 +1471,7 @@ function IolSection() {
                 </div>
             </div>
 
-            <div className="glass-card p-5 flex items-center justify-between">
+            <div className="glass-card p-5">
                 <label className="flex items-center gap-3 cursor-pointer select-none">
                     <div className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${toricNeeded ? 'bg-indigo-600' : 'bg-slate-300'}`}
                          onClick={() => setToricNeeded(!toricNeeded)}>
@@ -1485,13 +1484,6 @@ function IolSection() {
                         </p>
                     </div>
                 </label>
-                <button 
-                    onClick={handleReset}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-                >
-                    <i className="fa-solid fa-rotate-left"></i>
-                    초기화
-                </button>
             </div>
 
             <div className="space-y-3">
@@ -1505,13 +1497,13 @@ function IolSection() {
                 {currentGroup.map(iol => {
                     const rec = currentRecs[iol.id] || '';
                     return (
-                        <div key={iol.id} className={`glass-card p-5 transition-all duration-200 ${rec === 'recommend' ? 'ring-2 ring-green-400 bg-green-50/30' : rec === 'possible' ? 'ring-1 ring-orange-400 bg-orange-50/30' : ''}`}>
+                        <div key={iol.id} className={`glass-card p-5 transition-all duration-200 ${rec === 'recommend' ? 'ring-2 ring-green-400 bg-green-50/30' : rec === 'possible' ? 'ring-1 ring-orange-400 bg-orange-50/30' : rec === 'none' ? 'ring-1 ring-red-400 bg-red-50/30' : ''}`}>
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1 min-w-0 flex items-center">
                                     <h3 className="text-base font-black text-slate-800">{iol.name}</h3>
                                 </div>
                                 <div className="flex gap-1.5 shrink-0">
-                                    {['recommend', 'possible'].map(val => {
+                                    {['recommend', 'possible', 'none'].map(val => {
                                         const s = recStyles[val];
                                         const isActive = rec === val;
                                         return (

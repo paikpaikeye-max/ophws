@@ -765,19 +765,24 @@
 .space-y-6 > * + * { margin-top: 1.5rem; }
 .space-y-8 > * + * { margin-top: 2rem; }
 
-/* [DEPRECATED: 2026-03-21] 인쇄용 스타일 - IOL 안내문이 window.open() 방식으로 변경되어 더 이상 사용하지 않음
+/* --- 인쇄용 스타일 (Print CSS) --- */
 @media print {
     body, html {
         background: white !important;
         height: auto !important;
         overflow: visible !important;
     }
+    
+    /* Hide everything not meant for printing */
     body * {
         visibility: hidden;
     }
+    
+    /* Make print area visible and position it at the top left */
     .print-area, .print-area * {
         visibility: visible;
     }
+    
     .print-area {
         position: absolute !important;
         left: 0 !important;
@@ -787,6 +792,8 @@
         padding: 0 !important;
         background: white !important;
     }
+    
+    /* Specific print page container adjustments */
     .print-page {
         width: 100% !important;
         max-width: none !important;
@@ -795,13 +802,14 @@
         box-shadow: none !important;
         border: none !important;
     }
+
+    /* Force browsers to print background colors and images */
     * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
+    
     .no-print {
         display: none !important;
     }
-}
-*/
-
+}

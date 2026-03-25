@@ -1209,335 +1209,245 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
     );
 }
 
-
-// --- IOL 안내문 컴포넌트 (v2 - 순차적 선택 방식) ---
-
-// Group A: 난시 교정이 필요 없는 경우 (4개)
-const IOL_GROUP_A = [
+// --- IOL 안내문 컴포넌트 ---
+const IOL_DATA = [
     {
-        id: 'mono_far',
-        name: '단초점 (원거리)',
-        feature: '먼 거리 초점 (2m 이상)',
-        pros: ['원거리가 잘 보임', '부작용 가능성이 제일 적음'],
-        cons: ['스마트폰, 독서 시 돋보기 필수', '중거리 시력 다소 부족 (운전 시 네비게이션이 흐릿할 수 있음)'],
-        target: '시력저하를 유발하는 다른 안과질환이 동반된 경우, 저렴한 비용이 우선인 분'
-    },
-    {
-        id: 'mono_near',
-        name: '단초점 (근거리)',
-        feature: '가까운 거리 초점 (50cm~33cm)',
-        pros: ['근거리가 잘 보임', '부작용 가능성이 제일 적음'],
-        cons: ['TV 시청, 야외활동에 안경 필수', '근거리 주시 시에는 안경을 벗어야 잘 보임'],
-        target: '시력저하를 유발하는 다른 안과질환이 동반된 경우, 저렴한 비용이 우선인 분'
+        id: 'monofocal',
+        name: '단초점 (Monofocal)',
+        desc: '원거리(또는 근거리) 한 곳에 초점을 맞추는 기본 렌즈입니다.',
+        pros: ['선명한 시야 확보', '빛번짐 최소화', '건강보험 적용(기본)'],
+        cons: ['안경(돋보기) 의존도 높음'],
+        ranges: { far: 5, mid: 2, near: 1 }
     },
     {
         id: 'edof',
-        name: '연속초점',
-        feature: '확장된 초점거리 (원거리~중간거리)',
-        pros: ['원거리부터 팔 닿는 거리(네비게이션, 요리 등)가 편하고 시야가 자연스러움', '다초점 대비 부작용 낮음'],
-        cons: ['근거리(50cm 이내) 활동은 돋보기가 필요할 수 있음', '단초점 대비 빛번짐 가능성'],
-        target: '활동적인 생활을 하며 안경 의존도를 낮추고 싶은 분, 근거리 활동이 많지 않은 분, 밸런스 추구형'
+        name: '연속초점 (EDOF)',
+        desc: '원거리부터 중간거리(컴퓨터, 내비게이션 등)까지 연속적으로 잘 보이는 렌즈입니다.',
+        pros: ['원~중간거리 우수한 시력', '다초점 대비 야간 빛번짐 적음'],
+        cons: ['아주 가까운 글씨는 돋보기 필요 가능'],
+        ranges: { far: 5, mid: 4, near: 2 }
     },
     {
-        id: 'multi',
-        name: '다초점',
-        feature: '가장 확장된 초점거리 (원거리~근거리)',
-        pros: ['안경 없이 대부분의 일상생활 가능'],
-        cons: ['빛 번짐(눈부심) 가능성 높고 야간에 심하며 적응 기간 필요', '일부에서 부작용으로 렌즈 교체 가능성'],
-        target: '안경 없이 모든 일상생활을 하고 싶은 분, 다른 안과적 문제가 없는 분'
-    }
-];
-
-// Group B: 난시 교정이 필요한 경우 (6개)
-const IOL_GROUP_B = [
-    {
-        id: 't_mono_far',
-        name: '단초점 (원거리)',
-        feature: '먼 거리 초점 (2m 이상)',
-        pros: ['건강보험 적용으로 경제적 부담이 가장 적음'],
-        cons: ['근거리 시력 불량(돋보기 필요)', '원거리 시력도 다소 부족할 가능성 (별도 난시 안경 필요)'],
-        target: '비용 효율을 최우선으로 하는 분, 여러가지 안경 착용에 거부감이 없는 분'
-    },
-    {
-        id: 't_mono_near',
-        name: '단초점 (근거리)',
-        feature: '가까운 거리 초점',
-        pros: ['건강보험 적용으로 경제적 부담이 가장 적음'],
-        cons: ['원거리 시력 불량(안경 필요)', '근거리 시력도 다소 부족할 가능성 (별도 난시 안경 필요)'],
-        target: '비용 효율을 최우선으로 하는 분, 여러가지 안경 착용에 거부감이 없는 분'
-    },
-    {
-        id: 't_mono_far_toric',
-        name: '단초점(원거리) + 난시교정',
-        feature: '먼 거리 초점 및 난시교정',
-        pros: ['원거리 시야가 가장 선명'],
-        cons: ['스마트폰, 독서 시 돋보기 필수', '중거리 시력 다소 부족'],
-        target: '원거리는 안경 없이 선명하게 보길 원하는 분, 돋보기 착용에는 거부감이 없는 분'
-    },
-    {
-        id: 't_mono_near_toric',
-        name: '단초점(근거리) + 난시교정',
-        feature: '가까운 거리 초점 및 난시교정',
-        pros: ['근거리 시야가 가장 선명'],
-        cons: ['TV 시청, 야외활동에 안경 필수', '근거리 주시 시에는 안경을 벗어야 잘 보임'],
-        target: '근거리는 돋보기 없이 선명하게 보길 원하는 분, 원거리 안경 착용에는 거부감이 없는 분'
-    },
-    {
-        id: 't_edof_toric',
-        name: '연속초점 + 난시교정',
-        feature: '확장된 초점거리 (원거리~중간거리)',
-        pros: ['원거리부터 팔 닿는 거리(네비게이션, 요리 등)가 편하고 시야가 자연스러움', '다초점 대비 부작용 낮음'],
-        cons: ['근거리(50cm 이내) 글자 읽기는 돋보기가 필요할 수 있음', '단초점 대비 빛번짐 가능성'],
-        target: '활동적인 생활을 하며 안경 의존도를 낮추고 싶은 분, 기능성 렌즈를 원하지만 부작용이 적은 밸런스 추구형'
-    },
-    {
-        id: 't_multi_toric',
-        name: '다초점 + 난시교정',
-        feature: '가장 확장된 초점거리 (원거리~근거리)',
-        pros: ['안경 없이 대부분의 일상생활 가능'],
-        cons: ['빛 번짐(눈부심) 가능성, 야간에 심하며 적응 기간 필요', '일부에서 부작용으로 렌즈 교체 가능성'],
-        target: '안경 없이 모든 일상생활을 하고 싶은 분, 다른 안과적 문제가 없는 분'
+        id: 'multifocal',
+        name: '다초점 (Multifocal)',
+        desc: '원거리, 중간거리, 근거리 모두 초점을 맞추어 안경 의존도를 최소화하는 렌즈입니다.',
+        pros: ['안경/돋보기 의존도 거의 없음', '일상생활 편의성 극대화'],
+        cons: ['초기 적응 기간 필요', '야간 빛번짐 발생 가능'],
+        ranges: { far: 5, mid: 4, near: 4 }
     }
 ];
 
 function IolSection() {
-    const [patientInfo, setPatientInfo] = useState({ name: '', eye: '우안' });
+    const [patientInfo, setPatientInfo] = useState({ name: '', regNo: '', eye: '우안 (OD)' });
+    const [selectedIols, setSelectedIols] = useState(['monofocal', 'edof', 'multifocal']); // default all
+    const [bestIol, setBestIol] = useState('');
     const [toricNeeded, setToricNeeded] = useState(false);
-    const [recsA, setRecsA] = useState({});
-    const [recsB, setRecsB] = useState({});
 
-    const currentGroup = toricNeeded ? IOL_GROUP_B : IOL_GROUP_A;
-    const currentRecs = toricNeeded ? recsB : recsA;
-    const setCurrentRecs = toricNeeded ? setRecsB : setRecsA;
-
-    const setRec = (id, val) => {
-        setCurrentRecs(prev => {
-            // 이미 선택된 상태라면 선택 해제(toggle off)
-            if (prev[id] === val) {
-                const newState = { ...prev };
-                delete newState[id];
-                return newState;
-            }
-            return { ...prev, [id]: val };
-        });
-    };
-
-    const handleReset = () => {
-        setCurrentRecs({});
-    };
-
-    const printableItems = currentGroup.filter(iol => {
-        const rec = currentRecs[iol.id];
-        return rec === 'recommend' || rec === 'possible';
-    });
-
-    const recLabel = (val) => {
-        if (val === 'recommend') return '추천';
-        if (val === 'possible') return '선택가능';
-        return '';
+    const toggleIol = (id) => {
+        setSelectedIols(prev => 
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+        if (bestIol === id) setBestIol(''); // reset best if deselected
     };
 
     const handlePrint = () => {
-        if (printableItems.length === 0) {
-            alert('추천 또는 선택가능으로 지정된 렌즈가 없습니다.\n최소 하나 이상의 렌즈를 추천 또는 선택가능으로 설정해주세요.');
-            return;
-        }
-
-        const todayStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
-        const groupLabel = toricNeeded ? '난시 교정이 필요한 경우' : '난시 교정이 필요 없는 경우';
-
-        const printWindow = window.open('', '_blank');
-
-        const css = `
-        <style>
-            @page { size: A4 portrait; margin: 10mm 15mm; }
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #1e293b; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .page { max-width: 210mm; margin: 0 auto; padding: 5px 15px; }
-            .header { text-align: center; border-bottom: 3px solid #1e293b; padding-bottom: 8px; margin-bottom: 10px; }
-            .header h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
-            .patient-info { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 18px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 10px; font-size: 16px; font-weight: 900; }
-            .patient-info .left { display: flex; gap: 24px; }
-            .intro { font-size: 11.5px; color: #475569; margin-bottom: 8px; line-height: 1.5; }
-            .intro strong { color: #1e293b; }
-            .lens-card { border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 18px 10px; margin-top: 10px; margin-bottom: 8px; page-break-inside: avoid; position: relative; }
-            .lens-card.is-recommend { border-color: #6366f1; background: #fafaff; }
-            .badge { font-size: 10px; font-weight: 900; padding: 2px 10px; border-radius: 6px; letter-spacing: 0.5px; border: 1px solid rgba(0,0,0,0.1); margin-left: 8px; vertical-align: middle; }
-            .badge-recommend { background: #6366f1; color: white; }
-            .badge-possible { background: #f59e0b; color: white; }
-            .lens-header { display: flex; align-items: center; margin-bottom: 8px; padding-bottom: 0; }
-            .lens-name { font-size: 19px; font-weight: 900; color: #1e293b; }
-            .lens-feature { font-size: 12.5px; color: #64748b; font-weight: 700; flex-grow: 1; text-align: right; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-            .info-box { background: white; padding: 10px 14px; }
-            .info-box:not(:last-child) { border-right: 1px solid #e2e8f0; }
-            .info-box h4 { font-size: 13.5px; font-weight: 900; margin-bottom: 6px; color: #1e293b; }
-            .info-box ul { font-size: 12.5px; font-weight: 600; color: #334155; padding-left: 15px; line-height: 1.4; list-style-type: disc; }
-            .info-box li { margin-bottom: 3px; }
-            .footer { border-top: 3px solid #1e293b; padding-top: 8px; margin-top: 10px; text-align: center; }
-            .footer .disclaimer { font-size: 11.5px; color: #64748b; font-weight: 700; }
-        </style>`;
-
-        const lensCardsHtml = printableItems.map(iol => {
-            const rec = currentRecs[iol.id];
-            const isRecommend = rec === 'recommend';
-            const badgeClass = isRecommend ? 'badge-recommend' : 'badge-possible';
-            const badgeText = isRecommend ? '추천' : '선택가능';
-            
-            // "적합한 분" 텍스트를 쉼표 기준으로 나누어 리스트화
-            const targetItems = iol.target.split(',').map(t => t.trim()).filter(t => t);
-            
-            return `
-            <div class="lens-card ${isRecommend ? 'is-recommend' : ''}">
-                <div class="lens-header">
-                    <div class="lens-name">${iol.name}</div>
-                    <div class="badge ${badgeClass}">${badgeText}</div>
-                    <div class="lens-feature">${iol.feature}</div>
-                </div>
-                <div class="info-grid">
-                    <div class="info-box">
-                        <h4>장점</h4>
-                        <ul>${iol.pros.map(p => '<li>' + p + '</li>').join('')}</ul>
-                    </div>
-                    <div class="info-box">
-                        <h4>단점</h4>
-                        <ul>${iol.cons.map(c => '<li>' + c + '</li>').join('')}</ul>
-                    </div>
-                    <div class="info-box">
-                        <h4>적합한 분</h4>
-                        <ul>${targetItems.map(t => '<li>' + t + '</li>').join('')}</ul>
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-
-        const htmlContent = `
-        <html>
-            <head><meta charset="utf-8"><title>인공수정체 안내문</title>${css}</head>
-            <body>
-                <div class="page">
-                    <div class="header">
-                        <h1>백내장 수술 인공수정체 선택 안내문</h1>
-                    </div>
-                    <div class="patient-info">
-                        <div class="left">
-                            <span>${patientInfo.name || 'OOO'} 님</span>
-                            <span>${patientInfo.eye}</span>
-                        </div>
-                        <div><span>${todayStr}</span></div>
-                    </div>
-                    <div class="intro">
-                        <p>성공적인 백내장 수술을 위해 기존의 혼탁해진 수정체를 제거하고, <strong>새로운 인공수정체를 삽입</strong>해야 합니다. 환자분의 정밀 검사 결과를 바탕으로, 아래와 같이 <strong>가장 적합한 인공수정체 종류를 안내</strong>해 드립니다. 각 렌즈의 특징을 확인하시고 수술 전 최종적으로 어떤 렌즈를 삽입할지 결정해주시기 바랍니다.</p>
-                    </div>
-                    ${lensCardsHtml}
-                    <div class="footer">
-                        <div class="disclaimer">
-                            * 본 안내문은 환자분의 직관적인 이해를 돕기 위한 참고자료이며, 최종 수술 결과는 눈 상태에 따라 개인차가 있을 수 있습니다.
-                        </div>
-                    </div>
-                </div>
-                <script>setTimeout(() => { window.print(); }, 500);<\/script>
-            </body>
-        </html>`;
-
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
+        window.print();
     };
 
-    const recStyles = {
-        recommend: { bg: 'bg-green-100', border: 'border-green-400', text: 'text-green-700' },
-        possible:  { bg: 'bg-orange-100', border: 'border-orange-400', text: 'text-orange-700' }
-    };
+    const RangeBars = ({ ranges }) => (
+        <div className="flex gap-4 mt-3">
+            {[
+                { label: '원거리(운전 등)', val: ranges.far },
+                { label: '중간거리(PC 등)', val: ranges.mid },
+                { label: '근거리(독서 등)', val: ranges.near }
+            ].map(r => (
+                <div key={r.label} className="flex flex-col items-center flex-1">
+                    <span className="text-[10px] font-bold text-slate-500 mb-1 whitespace-nowrap">{r.label}</span>
+                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden border border-slate-300">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(r.val / 5) * 100}%` }}></div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+
+    const todayStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 
     return (
-        <section className="max-w-2xl mx-auto space-y-6">
-            <div className="glass-card p-6 space-y-4">
+        <section className="space-y-6 flex flex-col xl:flex-row gap-6 relative min-h-[80vh]">
+            {/* 좌측: 컨트롤 입력 폼 (인쇄 시 숨김) */}
+            <div className="w-full xl:w-[350px] shrink-0 glass-card p-6 flex flex-col gap-6 no-print h-fit sticky top-6 mb-8">
                 <header className="border-b pb-3">
-                    <h2 className="text-xl font-black text-slate-800">인공수정체 안내문</h2>
-                    <p className="text-xs text-slate-500 mt-1 font-bold">환자 정보를 입력하고 렌즈 추천 옵션을 설정한 뒤 출력합니다.</p>
+                    <h2 className="text-xl font-black text-slate-800">안내문 설정</h2>
+                    <p className="text-xs text-slate-500 mt-1 font-bold">환자 정보 및 렌즈 추천 옵션을 설정합니다.</p>
                 </header>
-                <div className="grid grid-cols-2 gap-4">
-                    <input type="text" placeholder="환자 성함" className="input-base" value={patientInfo.name} onChange={e => setPatientInfo({...patientInfo, name: e.target.value})} />
-                    <div className="flex bg-slate-100 p-1 rounded-xl">
-                        {['우안', '좌안', '양안'].map(eyeOption => (
-                            <button
-                                key={eyeOption}
-                                onClick={() => setPatientInfo({...patientInfo, eye: eyeOption})}
-                                className={`flex-1 text-sm font-black rounded-lg transition-all ${patientInfo.eye === eyeOption ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                {eyeOption}
-                            </button>
-                        ))}
+
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-400">환자 정보</label>
+                        <input type="text" placeholder="환자 성함" className="input-base" value={patientInfo.name} onChange={e => setPatientInfo({...patientInfo, name: e.target.value})} />
+                        <input type="text" placeholder="등록번호" className="input-base" value={patientInfo.regNo} onChange={e => setPatientInfo({...patientInfo, regNo: e.target.value})} />
+                        <select className="input-base bg-white" value={patientInfo.eye} onChange={e => setPatientInfo({...patientInfo, eye: e.target.value})}>
+                            <option>우안 (OD)</option>
+                            <option>좌안 (OS)</option>
+                            <option>양안 (OU)</option>
+                        </select>
+                    </div>
+
+                    <div className="space-y-2 pt-4 border-t">
+                        <label className="text-xs font-bold text-slate-400">의학적 선택 가능 렌즈 (출력됨)</label>
+                        <div className="flex flex-col gap-2">
+                            {IOL_DATA.map(iol => (
+                                <label key={iol.id} className="flex items-center gap-2 text-sm font-bold cursor-pointer text-slate-700">
+                                    <input type="checkbox" checked={selectedIols.includes(iol.id)} onChange={() => toggleIol(iol.id)} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
+                                    {iol.name}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    {selectedIols.length > 0 && (
+                        <div className="space-y-2 pt-4 border-t">
+                            <label className="text-xs font-bold text-slate-400">가장 추천하는 렌즈 (Best Option 도장)</label>
+                            <select className="input-base bg-white" value={bestIol} onChange={e => setBestIol(e.target.value)}>
+                                <option value="">--- 선택 안 함 ---</option>
+                                {IOL_DATA.filter(iol => selectedIols.includes(iol.id)).map(iol => (
+                                    <option key={iol.id} value={iol.id}>{iol.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    <div className="space-y-2 pt-4 border-t">
+                        <label className="flex items-center gap-2 text-sm font-bold cursor-pointer text-slate-700">
+                            <input type="checkbox" checked={toricNeeded} onChange={e => setToricNeeded(e.target.checked)} className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500" />
+                            난시 교정 (Toric) 필요
+                        </label>
+                        <p className="text-[10px] text-slate-400 font-bold ml-6 leading-relaxed">체크 시 안내문 하단에 난시 교정의 필요성에 대한 안내 문구가 추가됩니다.</p>
+                    </div>
+
+                    <div className="pt-6">
+                        <button onClick={handlePrint} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2 border border-indigo-700">
+                            <i className="fa-solid fa-print"></i>
+                            안내문 인쇄하기
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div className="glass-card p-5 flex items-center justify-between">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
-                    <div className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${toricNeeded ? 'bg-indigo-600' : 'bg-slate-300'}`}
-                         onClick={() => setToricNeeded(!toricNeeded)}>
-                        <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-200 ${toricNeeded ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
-                    </div>
-                    <div>
-                        <span className="text-sm font-black text-slate-800">난시 교정 필요</span>
-                        <p className="text-[10px] text-slate-400 font-bold leading-tight mt-0.5">
-                            {toricNeeded ? '난시 교정이 필요한 경우 (6개 옵션)' : '난시 교정이 필요 없는 경우 (4개 옵션)'}
-                        </p>
-                    </div>
-                </label>
-                <button 
-                    onClick={handleReset}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-                >
-                    <i className="fa-solid fa-rotate-left"></i>
-                    초기화
-                </button>
-            </div>
+            {/* 우측: 인쇄 미리보기 레이아웃 (A4 비율 맞춤) */}
+            <div className="flex-1 print-area">
+                <div className="bg-white p-10 md:p-14 shadow-2xl print:shadow-none mx-auto print-page border border-slate-200 rounded-2xl print:rounded-none">
+                    {/* 안내문 헤더 */}
+                    <header className="border-b-4 border-slate-800 pb-6 mb-8 text-center">
+                        <h1 className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">백내장 수술 및 인공수정체 선택 안내문</h1>
+                    </header>
 
-            <div className="space-y-3">
-                <div className="flex items-center gap-2 px-1">
-                    <span className={`text-xs font-black px-3 py-1 rounded-full ${toricNeeded ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
-                        {toricNeeded ? 'Group B: 난시 교정 필요' : 'Group A: 난시 교정 불필요'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-bold">각 렌즈에 추천 여부를 선택하세요</span>
-                </div>
-
-                {currentGroup.map(iol => {
-                    const rec = currentRecs[iol.id] || '';
-                    return (
-                        <div key={iol.id} className={`glass-card p-5 transition-all duration-200 ${rec === 'recommend' ? 'ring-2 ring-green-400 bg-green-50/30' : rec === 'possible' ? 'ring-1 ring-orange-400 bg-orange-50/30' : ''}`}>
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0 flex items-center">
-                                    <h3 className="text-base font-black text-slate-800">{iol.name}</h3>
-                                </div>
-                                <div className="flex gap-1.5 shrink-0">
-                                    {['recommend', 'possible'].map(val => {
-                                        const s = recStyles[val];
-                                        const isActive = rec === val;
-                                        return (
-                                            <button key={val} onClick={() => setRec(iol.id, val)}
-                                                className={`px-3 py-1.5 rounded-lg text-[11px] font-black border-2 transition-all duration-150 ${isActive ? `${s.bg} ${s.border} ${s.text}` : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}>
-                                                {recLabel(val)}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                    {/* 환자 정보 */}
+                    <div className="flex justify-between items-center bg-slate-50 p-5 rounded-xl mb-8 border border-slate-200">
+                        <div className="flex gap-8">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest pl-1">Name</span>
+                                <span className="text-xl font-black text-slate-800">{patientInfo.name || "OOO"} 님</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest pl-1">Reg No.</span>
+                                <span className="text-xl font-bold text-slate-700">{patientInfo.regNo || "_______"}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest pl-1">Eye</span>
+                                <span className="text-lg font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-0.5 rounded-lg">{patientInfo.eye}</span>
                             </div>
                         </div>
-                    );
-                })}
-            </div>
+                        <div className="text-right">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mr-1">Date</span>
+                            <p className="text-sm font-bold text-slate-600">{todayStr}</p>
+                        </div>
+                    </div>
 
-            <div className="pt-2 pb-8">
-                <button onClick={handlePrint}
-                    disabled={printableItems.length === 0}
-                    className={`w-full font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 border ${printableItems.length > 0 ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700' : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'}`}>
-                    <i className="fa-solid fa-print"></i>
-                    안내문 출력 ({printableItems.length}개 렌즈)
-                </button>
-                {printableItems.length === 0 && (
-                    <p className="text-center text-[10px] text-slate-400 font-bold mt-2">추천 또는 선택가능으로 설정된 렌즈가 있어야 출력할 수 있습니다.</p>
-                )}
+                    {/* 진단 및 권고사항 */}
+                    <div className="mb-8 text-slate-700 space-y-3 leading-relaxed text-[15px]">
+                        <p>성공적인 백내장 수술을 위해 기존의 혼탁해진 수정체를 제거하고, <strong>새로운 인공수정체를 삽입</strong>해야 합니다.</p>
+                        <p>환자분의 정밀 검사 결과를 바탕으로, 아래와 같이 <strong>가장 적합한 인공수정체 종류를 안내</strong>해 드립니다. 각 렌즈의 특징을 확인하시고 수술 전 최종적으로 어떤 렌즈를 삽입할지 결정해주시기 바랍니다.</p>
+                    </div>
+
+                    {/* 렌즈 옵션 리스트 */}
+                    <div className="space-y-6 mb-8">
+                        {IOL_DATA.filter(iol => selectedIols.includes(iol.id)).map(iol => {
+                            const isBest = bestIol === iol.id;
+                            return (
+                                <div key={iol.id} className={`relative p-6 rounded-2xl border-2 transition-all ${isBest ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200 bg-white'}`}>
+                                    {isBest && (
+                                        <div className="absolute -top-4 -right-2 bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full shadow-md transform rotate-3 print:rotate-0 print:border-2 print:border-indigo-600 print:text-indigo-600 print:bg-white inset-auto print:top-4 print:right-6 print:shadow-none bg-indigo-600">
+                                            <i className="fa-solid fa-thumbs-up mr-1"></i> 가장 추천 (Best Option)
+                                        </div>
+                                    )}
+                                    <div className="flex items-baseline gap-3 mb-2">
+                                        <h3 className={`text-xl font-black ${isBest ? 'text-indigo-700' : 'text-slate-800'}`}>{iol.name}</h3>
+                                        {toricNeeded && (
+                                            <span className="text-xs font-black text-amber-700 bg-amber-50 px-2 py-1 rounded inline-flex items-center gap-1 border border-amber-200">
+                                                <span>+ 난시 교정(Toric) 적용</span>
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-500 mb-5 leading-relaxed">{iol.desc}</p>
+                                    
+                                    <div className="grid grid-cols-2 gap-5 mb-5">
+                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                            <h4 className="text-xs font-black text-slate-600 mb-2 flex items-center gap-1.5">
+                                                 <span className="bg-green-100 text-green-600 w-5 h-5 rounded-full flex items-center justify-center text-[10px] border border-green-200"><i className="fa-solid fa-check"></i></span> 장점
+                                            </h4>
+                                            <ul className="text-xs font-bold text-slate-600 space-y-2 list-disc pl-5">
+                                                {iol.pros.map((p, i) => <li key={i}>{p}</li>)}
+                                            </ul>
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                            <h4 className="text-xs font-black text-slate-600 mb-2 flex items-center gap-1.5">
+                                                 <span className="bg-amber-100 text-amber-600 w-5 h-5 rounded-full flex items-center justify-center text-[10px] border border-amber-200"><i className="fa-solid fa-exclamation"></i></span> 참고사항
+                                            </h4>
+                                            <ul className="text-xs font-bold text-slate-600 space-y-2 list-disc pl-5">
+                                                {iol.cons.map((c, i) => <li key={i}>{c}</li>)}
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t border-slate-100 pt-4">
+                                        <h4 className="text-xs font-black text-slate-400 mb-2 pl-1">이 렌즈를 선택했을 시 수술 후 거리별 시력 만족도 예측</h4>
+                                        <RangeBars ranges={iol.ranges} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {selectedIols.length === 0 && (
+                            <div className="text-center p-12 border-2 border-dashed border-slate-300 rounded-3xl text-slate-400 font-bold bg-slate-50">
+                                <i className="fa-solid fa-clipboard-list text-4xl mb-3 text-slate-300"></i>
+                                <p>좌측 안내문 설정에서 렌즈 옵션을 하나 이상 선택해주세요.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {toricNeeded && (
+                        <div className="mb-8 p-6 bg-amber-50 border-2 border-amber-200 rounded-xl relative overflow-hidden">
+                            <h4 className="text-[15px] font-black text-amber-900 mb-2 flex items-center gap-2">
+                                <i className="fa-solid fa-eye text-amber-600"></i> 난시 교정(Toric) 추가 안내
+                            </h4>
+                            <p className="text-[13px] font-bold text-amber-800/80 leading-relaxed">
+                                환자분은 각막 난시가 동반되어 있어, 일반 인공수정체 삽입 시 수술 후에도 난시성 안경 착용이 필요할 수 있습니다. 
+                                위에서 선택하시는 렌즈에 <strong>'난시 교정 기능(Toric)'</strong>을 추가로 적용하여 수술 후 선명도를 높이고 안경 의존도를 더욱 낮출 수 있습니다. 주치의 상담 시 상의 바랍니다.
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="border-t-[3px] border-slate-800 pt-6 mt-16 flex justify-between items-end pb-8">
+                        <div className="text-[11px] font-bold text-slate-400 leading-relaxed">
+                            <span className="text-indigo-400">*</span> 본 안내문은 환자분의 직관적인 이해를 돕기 위한 참고자료이며,<br/>최종 수술 결과는 눈 상태에 따라 개인차가 있을 수 있습니다.
+                        </div>
+                        <div className="text-base font-black text-slate-800 flex items-end gap-3">
+                            <span className="mb-1">주치의 서명 :</span>
+                            <div className="w-40 border-b-2 border-slate-400"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
     );

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import LogoutButton from '@/components/LogoutButton';
+import GlobalAccountWidget from '@/components/GlobalAccountWidget';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -216,7 +216,7 @@ export default function LandingPage() {
 
       <footer className="mt-16 text-center space-y-4">
         <div className="flex justify-center">
-          <LogoutButton />
+          <GlobalAccountWidget />
         </div>
         <p className="text-[10px] font-bold text-slate-300 tracking-widest uppercase mb-1">Ophws Medical Information System</p>
         <p className="text-[9px] text-slate-400 font-medium">© 2026 OPHWS Roster v2.0. All Rights Reserved.</p>
