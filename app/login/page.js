@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 
 export default function LoginPage() {
     const [loading, setLoading] = useState(false)
     const [errorMsg, setErrorMsg] = useState('')
-    const searchParams = useSearchParams()
 
     // Create Supabase client for browser
     const supabase = createBrowserClient(
@@ -23,12 +21,15 @@ export default function LoginPage() {
             // Determine the redirect URL dynamically based on the current environment
             const origin = typeof window !== 'undefined' ? window.location.origin : ''
             const redirectTo = `${origin}/auth/callback`
+            const shouldSelectAccount =
+                typeof window !== 'undefined' &&
+                new URLSearchParams(window.location.search).get('switch') === '1'
 
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: redirectTo,
-                    queryParams: searchParams.get('switch') === '1' ? { prompt: 'select_account' } : undefined,
+                    queryParams: shouldSelectAccount ? { prompt: 'select_account' } : undefined,
                 },
             })
 
