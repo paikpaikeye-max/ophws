@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import './assistant.css';
-import { DEFAULT_ASSISTANT_CONFIG, DIAGS, HOSP_LABELS, DATE_FORMATS } from '@/lib/assistantConstants';
+import { DEFAULT_ASSISTANT_CONFIG, DIAGS, HOSP_LABELS, DATE_FORMATS, ASSISTANT_FEATURES } from '@/lib/assistantConstants';
 import { loadMergedConfig, saveUserConfig, applyGlobalUpdate, deployGlobalConfig } from '@/lib/assistantConfig';
 
 export default function AssistantPage() {
@@ -24,6 +24,14 @@ export default function AssistantPage() {
     const [configLoaded, setConfigLoaded] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const authClientRef = useRef(null);
+    const visibleFeatures = ASSISTANT_FEATURES.filter(feature => config.featureVisibility?.[feature.id] !== false);
+
+    useEffect(() => {
+        if (visibleFeatures.length === 0) return;
+        if (!visibleFeatures.some(feature => feature.id === activeTab)) {
+            setActiveTab(visibleFeatures[0].id);
+        }
+    }, [activeTab, visibleFeatures]);
 
     // 현재 로그인 유저 가져오기 + Config 로드
     useEffect(() => {
@@ -96,12 +104,7 @@ export default function AssistantPage() {
                 </div>
 
                 <nav className="flex-1 space-y-1 mt-4">
-                    {[
-                        { id: 'schedule', label: '주사 일정 계산', icon: 'fa-calendar-alt' },
-                        { id: 'cost', label: '주사 비용 계산기', icon: 'fa-coins' },
-                        { id: 'risk', label: 'Dry AMD 위험도', icon: 'fa-chart-line' },
-                        { id: 'iol', label: '인공수정체 안내문', icon: 'fa-compact-disc' }
-                    ].map(tab => (
+                    {visibleFeatures.map(tab => (
                         <div
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
@@ -597,7 +600,7 @@ function RiskSection() {
     };
 
     // 눈별 체크박스 패널
-    const EyePanel = ({ eye, label }) => {
+    const renderEyePanel = (eye, label) => {
         const isAdvOther = advanced[eye === 'R' ? 'L' : 'R'];
         return (
             <div className="space-y-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
@@ -655,8 +658,8 @@ function RiskSection() {
                     </header>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <EyePanel eye="R" label="Right Eye (OD)" />
-                        <EyePanel eye="L" label="Left Eye (OS)" />
+                        {renderEyePanel('R', 'Right Eye (OD)')}
+                        {renderEyePanel('L', 'Right Eye (OS)')}
                     </div>
 
                     {/* 결과 패널 */}
@@ -759,6 +762,25 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
 
     // hospRate를 가져올 때 float 보장
     const hospRate = parseFloat(tempConfig.hospRate) || 0.6;
+    const settingsTabs = [
+        { id: 'sched-set', title: '주사 일정 계산', featureId: 'schedule' },
+        { id: 'cost-set', title: '주사 비용 계산기', featureId: 'cost' },
+        { id: 'risk-set', title: 'Dry AMD 위험도', featureId: 'risk' },
+        { id: 'iol-set', title: '인공수정체 안내문', featureId: 'iol' },
+    ];
+    const currentSettingsTab = settingsTabs.find(tab => tab.id === settingsTab) || settingsTabs[0];
+    const currentFeatureId = currentSettingsTab.featureId;
+    const currentFeatureEnabled = tempConfig.featureVisibility?.[currentFeatureId] !== false;
+
+    const updateFeatureVisibility = (featureId, enabled) => {
+        setTempConfig(prev => ({
+            ...prev,
+            featureVisibility: {
+                ...prev.featureVisibility,
+                [featureId]: enabled,
+            }
+        }));
+    };
 
     // 50% 자동 계산
     const autoCalcAll50 = useCallback((cfg) => {
@@ -877,6 +899,7 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
                     hospRate: tempConfig.hospRate,
                     dateFormat: tempConfig.dateFormat,
                     injFee: tempConfig.injFee,
+                    featureVisibility: tempConfig.featureVisibility,
                     drugs: tempConfig.drugs,
                     matrix: tempConfig.matrix
                 };
@@ -966,14 +989,15 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
             <div className="modal-content" onClick={e => e.stopPropagation()}>
                 {/* 모달 사이드바 */}
                 <div className="modal-sidebar">
-                    <div
-                        className={`modal-tab ${settingsTab === 'sched-set' ? 'active' : ''}`}
-                        onClick={() => setSettingsTab('sched-set')}
-                    >주사 일정 계산</div>
-                    <div
-                        className={`modal-tab ${settingsTab === 'cost-set' ? 'active' : ''}`}
-                        onClick={() => setSettingsTab('cost-set')}
-                    >주사 비용 계산기</div>
+                    {settingsTabs.map(tab => (
+                        <div
+                            key={tab.id}
+                            className={`modal-tab ${settingsTab === tab.id ? 'active' : ''}`}
+                            onClick={() => setSettingsTab(tab.id)}
+                        >
+                            {tab.title}
+                        </div>
+                    ))}
                 </div>
 
                 {/* 모달 메인 */}
@@ -981,7 +1005,7 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
                     {/* 헤더 */}
                     <div className="modal-header">
                         <h2 className="font-black text-lg text-slate-800 uppercase italic">
-                            {settingsTab === 'cost-set' ? '주사 비용 계산기' : '주사 일정 계산'}
+                            {currentSettingsTab.title}
                         </h2>
                         <button onClick={onClose} className="modal-close-btn">&times;</button>
                     </div>
@@ -997,6 +1021,24 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
 
                     {/* 컨텐츠 */}
                     <div className="modal-body">
+                        <div className="settings-section mb-6">
+                            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                <div>
+                                    <h3 className="font-bold text-slate-800">기능 사용</h3>
+                                    <p className="text-xs font-bold text-slate-400 mt-1">
+                                        끄면 좌측 툴바에서 이 기능이 표시되지 않습니다.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => updateFeatureVisibility(currentFeatureId, !currentFeatureEnabled)}
+                                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${currentFeatureEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                >
+                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${currentFeatureEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                        </div>
+
                         {/* 탭 1: 날짜 형식 */}
                         {settingsTab === 'sched-set' && (
                             <div className="space-y-6">
@@ -1185,6 +1227,18 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
                                 </div>
                             </div>
                         )}
+
+                        {settingsTab === 'risk-set' && null}
+
+                        {settingsTab === 'iol-set' && (
+                            <div className="space-y-6">
+                                <div className="settings-section">
+                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                                        추후 개별화된 인공수정체 장단점 안내 설정이 구현될 예정입니다.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* 하단 버튼 */}
@@ -1305,6 +1359,7 @@ function IolSection() {
     const [toricNeeded, setToricNeeded] = useState(false);
     const [recsA, setRecsA] = useState({});
     const [recsB, setRecsB] = useState({});
+    const [printSize, setPrintSize] = useState('small');
 
     const currentGroup = toricNeeded ? IOL_GROUP_B : IOL_GROUP_A;
     const currentRecs = toricNeeded ? recsB : recsA;
@@ -1343,50 +1398,108 @@ function IolSection() {
             return;
         }
 
-        const todayStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
-        const groupLabel = toricNeeded ? '난시 교정이 필요한 경우' : '난시 교정이 필요 없는 경우';
-
         const printWindow = window.open('', '_blank');
+        const todayStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+        const layoutMap = {
+            small: {
+                cardsPerPage: 4,
+                pagePadding: '5px 15px',
+                headerFont: '22px',
+                patientFont: '16px',
+                introFont: '11.5px',
+                cardPadding: '12px 18px 10px',
+                cardMargin: '10px 0 8px',
+                lensNameFont: '19px',
+                featureFont: '12.5px',
+                badgeFont: '10px',
+                sectionTitleFont: '13.5px',
+                bodyFont: '12.5px',
+                lineHeight: '1.4',
+                columns: '1fr 1fr 1fr',
+                boxPadding: '10px 14px',
+                splitDirection: 'right',
+                disclaimerFont: '11.5px'
+            },
+            medium: {
+                cardsPerPage: 2,
+                pagePadding: '8px 16px',
+                headerFont: '24px',
+                patientFont: '17px',
+                introFont: '12.5px',
+                cardPadding: '16px 20px 14px',
+                cardMargin: '14px 0 12px',
+                lensNameFont: '24px',
+                featureFont: '15px',
+                badgeFont: '11px',
+                sectionTitleFont: '16px',
+                bodyFont: '14px',
+                lineHeight: '1.55',
+                columns: '1fr 1fr 1fr',
+                boxPadding: '14px 16px',
+                splitDirection: 'right',
+                disclaimerFont: '12px'
+            },
+            large: {
+                cardsPerPage: 1,
+                pagePadding: '10px 18px',
+                headerFont: '26px',
+                patientFont: '18px',
+                introFont: '13.5px',
+                cardPadding: '18px 22px 18px',
+                cardMargin: '18px 0 14px',
+                lensNameFont: '28px',
+                featureFont: '17px',
+                badgeFont: '12px',
+                sectionTitleFont: '18px',
+                bodyFont: '15.5px',
+                lineHeight: '1.65',
+                columns: '1fr',
+                boxPadding: '16px 18px',
+                splitDirection: 'bottom',
+                disclaimerFont: '12.5px'
+            }
+        };
+        const layout = layoutMap[printSize] || layoutMap.small;
+        const isLarge = printSize === 'large';
 
         const css = `
         <style>
             @page { size: A4 portrait; margin: 10mm 15mm; }
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #1e293b; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .page { max-width: 210mm; margin: 0 auto; padding: 5px 15px; }
+            .page { max-width: 210mm; margin: 0 auto; padding: ${layout.pagePadding}; }
+            .page + .page { page-break-before: always; }
             .header { text-align: center; border-bottom: 3px solid #1e293b; padding-bottom: 8px; margin-bottom: 10px; }
-            .header h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
-            .patient-info { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 18px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 10px; font-size: 16px; font-weight: 900; }
+            .header h1 { font-size: ${layout.headerFont}; font-weight: 900; letter-spacing: -0.5px; }
+            .patient-info { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 18px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 10px; font-size: ${layout.patientFont}; font-weight: 900; }
             .patient-info .left { display: flex; gap: 24px; }
-            .intro { font-size: 11.5px; color: #475569; margin-bottom: 8px; line-height: 1.5; }
+            .intro { font-size: ${layout.introFont}; color: #475569; margin-bottom: 10px; line-height: 1.55; }
             .intro strong { color: #1e293b; }
-            .lens-card { border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 18px 10px; margin-top: 10px; margin-bottom: 8px; page-break-inside: avoid; position: relative; }
+            .lens-card { border: 2px solid #e2e8f0; border-radius: 12px; padding: ${layout.cardPadding}; margin: ${layout.cardMargin}; page-break-inside: avoid; position: relative; }
             .lens-card.is-recommend { border-color: #6366f1; background: #fafaff; }
-            .badge { font-size: 10px; font-weight: 900; padding: 2px 10px; border-radius: 6px; letter-spacing: 0.5px; border: 1px solid rgba(0,0,0,0.1); margin-left: 8px; vertical-align: middle; }
+            .badge { font-size: ${layout.badgeFont}; font-weight: 900; padding: 3px 10px; border-radius: 6px; letter-spacing: 0.5px; border: 1px solid rgba(0,0,0,0.1); margin-left: 8px; vertical-align: middle; }
             .badge-recommend { background: #6366f1; color: white; }
             .badge-possible { background: #f59e0b; color: white; }
-            .lens-header { display: flex; align-items: center; margin-bottom: 8px; padding-bottom: 0; }
-            .lens-name { font-size: 19px; font-weight: 900; color: #1e293b; }
-            .lens-feature { font-size: 12.5px; color: #64748b; font-weight: 700; flex-grow: 1; text-align: right; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-            .info-box { background: white; padding: 10px 14px; }
-            .info-box:not(:last-child) { border-right: 1px solid #e2e8f0; }
-            .info-box h4 { font-size: 13.5px; font-weight: 900; margin-bottom: 6px; color: #1e293b; }
-            .info-box ul { font-size: 12.5px; font-weight: 600; color: #334155; padding-left: 15px; line-height: 1.4; list-style-type: disc; }
-            .info-box li { margin-bottom: 3px; }
+            .lens-header { display: flex; align-items: ${isLarge ? 'flex-start' : 'center'}; flex-wrap: wrap; gap: ${isLarge ? '8px' : '0'}; margin-bottom: 10px; }
+            .lens-name { font-size: ${layout.lensNameFont}; font-weight: 900; color: #1e293b; }
+            .lens-feature { font-size: ${layout.featureFont}; color: #64748b; font-weight: 700; flex-grow: 1; text-align: ${isLarge ? 'left' : 'right'}; width: ${isLarge ? '100%' : 'auto'}; margin-top: ${isLarge ? '4px' : '0'}; }
+            .info-grid { display: grid; grid-template-columns: ${layout.columns}; gap: 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+            .info-box { background: white; padding: ${layout.boxPadding}; }
+            .info-box:not(:last-child) { border-${layout.splitDirection}: 1px solid #e2e8f0; }
+            .info-box h4 { font-size: ${layout.sectionTitleFont}; font-weight: 900; margin-bottom: 8px; color: #1e293b; }
+            .info-box ul { font-size: ${layout.bodyFont}; font-weight: 600; color: #334155; padding-left: 18px; line-height: ${layout.lineHeight}; list-style-type: disc; }
+            .info-box li { margin-bottom: 5px; }
             .footer { border-top: 3px solid #1e293b; padding-top: 8px; margin-top: 10px; text-align: center; }
-            .footer .disclaimer { font-size: 11.5px; color: #64748b; font-weight: 700; }
+            .footer .disclaimer { font-size: ${layout.disclaimerFont}; color: #64748b; font-weight: 700; }
         </style>`;
 
-        const lensCardsHtml = printableItems.map(iol => {
+        const lensCards = printableItems.map(iol => {
             const rec = currentRecs[iol.id];
             const isRecommend = rec === 'recommend';
             const badgeClass = isRecommend ? 'badge-recommend' : 'badge-possible';
             const badgeText = isRecommend ? '추천' : '선택가능';
-            
-            // "적합한 분" 텍스트를 쉼표 기준으로 나누어 리스트화
-            const targetItems = iol.target.split(',').map(t => t.trim()).filter(t => t);
-            
+            const targetItems = iol.target.split(',').map(t => t.trim()).filter(Boolean);
+
             return `
             <div class="lens-card ${isRecommend ? 'is-recommend' : ''}">
                 <div class="lens-header">
@@ -1397,45 +1510,58 @@ function IolSection() {
                 <div class="info-grid">
                     <div class="info-box">
                         <h4>장점</h4>
-                        <ul>${iol.pros.map(p => '<li>' + p + '</li>').join('')}</ul>
+                        <ul>${iol.pros.map(p => `<li>${p}</li>`).join('')}</ul>
                     </div>
                     <div class="info-box">
                         <h4>단점</h4>
-                        <ul>${iol.cons.map(c => '<li>' + c + '</li>').join('')}</ul>
+                        <ul>${iol.cons.map(c => `<li>${c}</li>`).join('')}</ul>
                     </div>
                     <div class="info-box">
                         <h4>적합한 분</h4>
-                        <ul>${targetItems.map(t => '<li>' + t + '</li>').join('')}</ul>
+                        <ul>${targetItems.map(t => `<li>${t}</li>`).join('')}</ul>
                     </div>
                 </div>
             </div>`;
-        }).join('');
+        });
+
+        const pages = [];
+        for (let i = 0; i < lensCards.length; i += layout.cardsPerPage) {
+            pages.push(lensCards.slice(i, i + layout.cardsPerPage));
+        }
+
+        const pagesHtml = pages.map((pageCards, index) => `
+            <div class="page">
+                ${index === 0 ? `
+                <div class="header">
+                    <h1>백내장 수술 인공수정체 선택 안내문</h1>
+                </div>
+                <div class="patient-info">
+                    <div class="left">
+                        <span>${patientInfo.name || 'OOO'} 님</span>
+                        <span>${patientInfo.eye}</span>
+                    </div>
+                    <div><span>${todayStr}</span></div>
+                </div>
+                <div class="intro">
+                    <p>성공적인 백내장 수술을 위해 기존의 혼탁해진 수정체를 제거하고, <strong>새로운 인공수정체를 삽입</strong>해야 합니다. 환자분의 정밀 검사 결과를 바탕으로, 아래와 같이 <strong>가장 적합한 인공수정체 종류를 안내</strong>해 드립니다. 각 렌즈의 특징을 확인하시고 수술 전 최종적으로 어떤 렌즈를 삽입할지 결정해주시기 바랍니다.</p>
+                </div>
+                ` : ''}
+                ${pageCards.join('')}
+                ${index === pages.length - 1 ? `
+                <div class="footer">
+                    <div class="disclaimer">
+                        * 본 안내문은 환자분의 직관적인 이해를 돕기 위한 참고자료이며, 최종 수술 결과는 눈 상태에 따라 개인차가 있을 수 있습니다.
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        `).join('');
 
         const htmlContent = `
         <html>
             <head><meta charset="utf-8"><title>인공수정체 안내문</title>${css}</head>
             <body>
-                <div class="page">
-                    <div class="header">
-                        <h1>백내장 수술 인공수정체 선택 안내문</h1>
-                    </div>
-                    <div class="patient-info">
-                        <div class="left">
-                            <span>${patientInfo.name || 'OOO'} 님</span>
-                            <span>${patientInfo.eye}</span>
-                        </div>
-                        <div><span>${todayStr}</span></div>
-                    </div>
-                    <div class="intro">
-                        <p>성공적인 백내장 수술을 위해 기존의 혼탁해진 수정체를 제거하고, <strong>새로운 인공수정체를 삽입</strong>해야 합니다. 환자분의 정밀 검사 결과를 바탕으로, 아래와 같이 <strong>가장 적합한 인공수정체 종류를 안내</strong>해 드립니다. 각 렌즈의 특징을 확인하시고 수술 전 최종적으로 어떤 렌즈를 삽입할지 결정해주시기 바랍니다.</p>
-                    </div>
-                    ${lensCardsHtml}
-                    <div class="footer">
-                        <div class="disclaimer">
-                            * 본 안내문은 환자분의 직관적인 이해를 돕기 위한 참고자료이며, 최종 수술 결과는 눈 상태에 따라 개인차가 있을 수 있습니다.
-                        </div>
-                    </div>
-                </div>
+                ${pagesHtml}
                 <script>setTimeout(() => { window.print(); }, 500);<\/script>
             </body>
         </html>`;
@@ -1528,13 +1654,36 @@ function IolSection() {
                 })}
             </div>
 
-            <div className="pt-2 pb-8">
-                <button onClick={handlePrint}
-                    disabled={printableItems.length === 0}
-                    className={`w-full font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 border ${printableItems.length > 0 ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700' : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'}`}>
-                    <i className="fa-solid fa-print"></i>
-                    안내문 출력 ({printableItems.length}개 렌즈)
-                </button>
+            <div className="pt-2 pb-8 space-y-2">
+                <div className="flex items-center gap-2">
+                    <div className="flex flex-1 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                        <span className="text-[12px] font-black text-slate-600">글자 크기</span>
+                        <div className="flex gap-1">
+                            {[
+                                { value: 'small', label: '소' },
+                                { value: 'medium', label: '중' },
+                                { value: 'large', label: '대' },
+                            ].map(option => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => setPrintSize(option.value)}
+                                    className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition-all border ${printSize === option.value
+                                        ? 'border-indigo-600 bg-indigo-600 text-white'
+                                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <button onClick={handlePrint}
+                        disabled={printableItems.length === 0}
+                        className={`w-[50%] shrink-0 font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 border ${printableItems.length > 0 ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700' : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'}`}>
+                        <i className="fa-solid fa-print"></i>
+                        안내문 출력
+                    </button>
+                </div>
                 {printableItems.length === 0 && (
                     <p className="text-center text-[10px] text-slate-400 font-bold mt-2">추천 또는 선택가능으로 설정된 렌즈가 있어야 출력할 수 있습니다.</p>
                 )}
