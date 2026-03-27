@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import './assistant.css';
-import { DEFAULT_ASSISTANT_CONFIG, DIAGS, HOSP_LABELS, DATE_FORMATS, ASSISTANT_FEATURES } from '@/lib/assistantConstants';
-import { loadMergedConfig, saveUserConfig, applyGlobalUpdate, deployGlobalConfig } from '@/lib/assistantConfig';
+import { DEFAULT_ASSISTANT_CONFIG, DIAGS, HOSP_LABELS, DATE_FORMATS, ASSISTANT_FEATURES, ASSISTANT_SETTINGS_TABS, ASSISTANT_DEPLOY_OPTIONS, DEFAULT_DEPLOY_SELECTIONS } from '@/lib/assistantConstants';
+import { loadMergedConfig, saveUserConfig, applyGlobalUpdate, deployGlobalConfig, normalizeAssistantConfig, stripInternalConfigFields } from '@/lib/assistantConfig';
 
 export default function AssistantPage() {
     const router = useRouter();
@@ -14,15 +14,18 @@ export default function AssistantPage() {
     const [collapsed, setCollapsed] = useState(false);
     const [toast, setToast] = useState({ show: false, message: "" });
     const [showSettings, setShowSettings] = useState(false);
+    const [userName, setUserName] = useState('');
 
     // DB 연동 상태
     const [userId, setUserId] = useState(null);
     const [globalConfig, setGlobalConfig] = useState(null);
     const [globalVersion, setGlobalVersion] = useState(0);
     const [baseVersion, setBaseVersion] = useState(0);
+    const [dismissedGlobalVersion, setDismissedGlobalVersion] = useState(0);
     const [hasGlobalUpdate, setHasGlobalUpdate] = useState(false);
     const [configLoaded, setConfigLoaded] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [showGlobalUpdatePrompt, setShowGlobalUpdatePrompt] = useState(false);
     const authClientRef = useRef(null);
     const visibleFeatures = ASSISTANT_FEATURES.filter(feature => config.featureVisibility?.[feature.id] !== false);
 
@@ -52,9 +55,10 @@ export default function AssistantPage() {
                     // Admin 권한 확인
                     const { data: profile } = await authClient
                         .from('user_profiles')
-                        .select('status')
+                        .select('status, name')
                         .eq('id', user.id)
                         .single();
+                    setUserName(profile?.name || user.email?.split('@')[0] || 'assistant-config');
                     if (profile?.status === 'admin') {
                         setIsAdmin(true);
                     }
@@ -64,7 +68,11 @@ export default function AssistantPage() {
                     setGlobalConfig(result.globalConfig);
                     setGlobalVersion(result.globalVersion);
                     setBaseVersion(result.baseVersion);
+                    setDismissedGlobalVersion(result.dismissedGlobalVersion || 0);
                     setHasGlobalUpdate(result.hasUpdate);
+                    if (profile?.status !== 'admin' && result.hasUpdate) {
+                        setShowGlobalUpdatePrompt(true);
+                    }
                 }
             } catch (err) {
                 console.warn('[Assistant] 초기화 중 오류 발생 (기본값 사용):', err);
@@ -86,6 +94,45 @@ export default function AssistantPage() {
     const showToast = (msg) => {
         setToast({ show: true, message: msg });
         setTimeout(() => setToast({ show: false, message: "" }), 2000);
+    };
+
+    const handleApplyGlobalPrompt = async () => {
+        if (!userId || !authClientRef.current || !globalConfig) return;
+
+        const updatedConfig = normalizeAssistantConfig(applyGlobalUpdate(config, globalConfig));
+        const result = await saveUserConfig(authClientRef.current, userId, stripInternalConfigFields(updatedConfig), globalVersion, {
+            dismissedGlobalVersion: 0,
+        });
+
+        if (!result.success) {
+            showToast('전역 설정 적용 실패: ' + result.error);
+            return;
+        }
+
+        setConfig(updatedConfig);
+        setBaseVersion(globalVersion);
+        setDismissedGlobalVersion(0);
+        setHasGlobalUpdate(false);
+        setShowGlobalUpdatePrompt(false);
+        showToast('관리자 설정 업데이트를 내 설정에 반영했습니다.');
+    };
+
+    const handleDismissGlobalPrompt = async () => {
+        if (!userId || !authClientRef.current) return;
+
+        const result = await saveUserConfig(authClientRef.current, userId, stripInternalConfigFields(config), globalVersion, {
+            baseVersionOverride: baseVersion,
+            dismissedGlobalVersion: globalVersion,
+        });
+
+        if (!result.success) {
+            showToast('업데이트 알림 처리 실패: ' + result.error);
+            return;
+        }
+
+        setDismissedGlobalVersion(globalVersion);
+        setHasGlobalUpdate(false);
+        setShowGlobalUpdatePrompt(false);
     };
 
     return (
@@ -152,16 +199,49 @@ export default function AssistantPage() {
                 userId={userId}
                 globalVersion={globalVersion}
                 globalConfig={globalConfig}
-                hasGlobalUpdate={hasGlobalUpdate}
                 setHasGlobalUpdate={setHasGlobalUpdate}
                 setBaseVersion={setBaseVersion}
+                dismissedGlobalVersion={dismissedGlobalVersion}
                 setGlobalVersion={setGlobalVersion}
                 setGlobalConfig={setGlobalConfig}
                 isAdmin={isAdmin}
+                userName={userName}
                 onClose={() => setShowSettings(false)}
                 showToast={showToast}
                 supabaseClient={authClientRef.current}
             />}
+
+            {showGlobalUpdatePrompt && globalConfig && !isAdmin && (
+                <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/45 px-6">
+                    <div className="w-full max-w-xl rounded-[32px] bg-white p-7 shadow-2xl">
+                        <div className="mb-5">
+                            <h2 className="text-xl font-black text-slate-900">관리자의 설정 업데이트가 있습니다</h2>
+                            <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-4 text-sm font-medium leading-relaxed text-slate-600">
+                                {globalConfig._lastDeployMeta?.summary?.trim() || '새 전역 설정이 배포되었습니다.'}
+                            </p>
+                            <p className="mt-4 text-sm font-semibold text-slate-500">
+                                이 업데이트를 내 개인 설정에 적용하시겠습니까?
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={handleDismissGlobalPrompt}
+                                className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                            >
+                                아니오
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleApplyGlobalPrompt}
+                                className="rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-indigo-500"
+                            >
+                                네
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {toast.show && <div id="toast" className="show">{toast.message}</div>}
         </div>
@@ -754,23 +834,44 @@ function RiskSection() {
 }
 
 // --- 설정 모달 컴포넌트 (원본 config.js 포팅) ---
-function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig, hasGlobalUpdate, setHasGlobalUpdate, setBaseVersion, setGlobalVersion, setGlobalConfig, isAdmin, onClose, showToast, supabaseClient }) {
+function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig, setHasGlobalUpdate, setBaseVersion, dismissedGlobalVersion, setGlobalVersion, setGlobalConfig, isAdmin, userName, onClose, showToast, supabaseClient }) {
     const [settingsTab, setSettingsTab] = useState('sched-set');
-    const [tempConfig, setTempConfig] = useState(() => JSON.parse(JSON.stringify(config)));
+    const [tempConfig, setTempConfig] = useState(() => normalizeAssistantConfig(config));
     const [saving, setSaving] = useState(false);
     const [deploying, setDeploying] = useState(false);
+    const [showDeployDialog, setShowDeployDialog] = useState(false);
+    const [deploySummary, setDeploySummary] = useState('');
+    const [showUserPresetDialog, setShowUserPresetDialog] = useState(false);
+    const [presetUsers, setPresetUsers] = useState([]);
+    const [presetSearch, setPresetSearch] = useState('');
+    const [loadingPresetUsers, setLoadingPresetUsers] = useState(false);
+    const [selectedPresetUserId, setSelectedPresetUserId] = useState(null);
+    const [applyingPreset, setApplyingPreset] = useState(false);
 
     // hospRate를 가져올 때 float 보장
     const hospRate = parseFloat(tempConfig.hospRate) || 0.6;
-    const settingsTabs = [
-        { id: 'sched-set', title: '주사 일정 계산', featureId: 'schedule' },
-        { id: 'cost-set', title: '주사 비용 계산기', featureId: 'cost' },
-        { id: 'risk-set', title: 'Dry AMD 위험도', featureId: 'risk' },
-        { id: 'iol-set', title: '인공수정체 안내문', featureId: 'iol' },
-    ];
+    const settingsTabs = ASSISTANT_SETTINGS_TABS;
     const currentSettingsTab = settingsTabs.find(tab => tab.id === settingsTab) || settingsTabs[0];
     const currentFeatureId = currentSettingsTab.featureId;
     const currentFeatureEnabled = tempConfig.featureVisibility?.[currentFeatureId] !== false;
+    const [deploySelections, setDeploySelections] = useState(() => DEFAULT_DEPLOY_SELECTIONS);
+    const currentDeployOptions = ASSISTANT_DEPLOY_OPTIONS[currentFeatureId] || [];
+    const currentDeploySelections = deploySelections[currentFeatureId] || {};
+    const globalDrugNames = new Set((globalConfig?.drugs || []).map(drug => drug.name));
+    const pendingCustomDrugNames = currentFeatureId === 'cost'
+        ? tempConfig.drugs
+            .map(drug => drug.name)
+            .filter(name => name && !globalDrugNames.has(name))
+        : [];
+    const filteredPresetUsers = presetUsers.filter(user => {
+        const keyword = presetSearch.trim().toLowerCase();
+        if (!keyword) return true;
+        return (
+            (user.name || '').toLowerCase().includes(keyword) ||
+            (user.email || '').toLowerCase().includes(keyword)
+        );
+    });
+    const selectedPresetUser = presetUsers.find(user => user.id === selectedPresetUserId) || null;
 
     const updateFeatureVisibility = (featureId, enabled) => {
         setTempConfig(prev => ({
@@ -778,6 +879,15 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
             featureVisibility: {
                 ...prev.featureVisibility,
                 [featureId]: enabled,
+            }
+        }));
+    };
+    const updateDeploySelection = (featureId, optionId, enabled) => {
+        setDeploySelections(prev => ({
+            ...prev,
+            [featureId]: {
+                ...(prev[featureId] || {}),
+                [optionId]: enabled,
             }
         }));
     };
@@ -893,17 +1003,13 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
     const handleSave = async () => {
         setSaving(true);
         try {
+            const normalizedConfig = normalizeAssistantConfig(tempConfig);
             // DB에 개인 오버라이드 저장
             if (userId && supabaseClient) {
-                const overrides = {
-                    hospRate: tempConfig.hospRate,
-                    dateFormat: tempConfig.dateFormat,
-                    injFee: tempConfig.injFee,
-                    featureVisibility: tempConfig.featureVisibility,
-                    drugs: tempConfig.drugs,
-                    matrix: tempConfig.matrix
-                };
-                const result = await saveUserConfig(supabaseClient, userId, overrides, globalVersion);
+                const overrides = stripInternalConfigFields(normalizedConfig);
+                const result = await saveUserConfig(supabaseClient, userId, overrides, globalVersion, {
+                    dismissedGlobalVersion,
+                });
                 if (!result.success) {
                     showToast('저장 실패: ' + result.error);
                     setSaving(false);
@@ -911,7 +1017,7 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
                 }
                 setBaseVersion(globalVersion);
             }
-            setConfig(tempConfig);
+            setConfig(normalizedConfig);
             showToast('설정이 저장되었습니다.');
             onClose();
         } catch (err) {
@@ -921,22 +1027,106 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
     };
 
     // 전역 배포 (Admin 전용)
+    const handleOpenDeployDialog = () => {
+        if (!isAdmin) return;
+        setDeploySummary('');
+        setShowDeployDialog(true);
+    };
+
+    const handleCloseDeployDialog = () => {
+        if (deploying) return;
+        setShowDeployDialog(false);
+    };
+
+    const handleOpenUserPresetDialog = async () => {
+        setShowUserPresetDialog(true);
+        setPresetSearch('');
+        setSelectedPresetUserId(null);
+        setLoadingPresetUsers(true);
+
+        const response = await fetch('/api/assistant/user-presets');
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            showToast('사용자 목록을 불러오지 못했습니다: ' + (payload.error || '알 수 없는 오류'));
+            setLoadingPresetUsers(false);
+            return;
+        }
+
+        setPresetUsers(payload.users || []);
+        setLoadingPresetUsers(false);
+    };
+
+    const handleCloseUserPresetDialog = () => {
+        if (applyingPreset) return;
+        setShowUserPresetDialog(false);
+    };
+
+    const handleApplyUserPreset = async () => {
+        if (!selectedPresetUserId) return;
+
+        setApplyingPreset(true);
+        const response = await fetch('/api/assistant/user-presets', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ targetUserId: selectedPresetUserId }),
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            showToast('선택한 사용자 설정을 불러오지 못했습니다: ' + (payload.error || '알 수 없는 오류'));
+            setApplyingPreset(false);
+            return;
+        }
+
+        const sourceConfig = normalizeAssistantConfig(payload.assistantConfig || {});
+        const nextConfig = normalizeAssistantConfig(sourceConfig);
+
+        setTempConfig(nextConfig);
+        setShowUserPresetDialog(false);
+        setApplyingPreset(false);
+        showToast(`${payload.user?.name || '선택한 사용자'}님의 전체 설정을 불러왔습니다. "내 설정 저장"을 누르면 반영됩니다.`);
+    };
+
     const handleDeployGlobal = async () => {
         if (!isAdmin || !supabaseClient) return;
-        if (!confirm('현재 설정을 전역 기본값으로 배포하시겠습니까?\n모든 사용자가 최신 버전을 적용받게 됩니다.')) return;
+        const selectedSections = currentDeployOptions
+            .filter(option => currentDeploySelections[option.id])
+            .map(option => option.id);
+        if (selectedSections.length === 0) {
+            showToast('전역 배포할 항목을 하나 이상 선택해주세요.');
+            return;
+        }
+        const selectedLabels = currentDeployOptions
+            .filter(option => currentDeploySelections[option.id])
+            .map(option => option.label)
+            .join(', ');
+        const trimmedSummary = deploySummary.trim();
+        if (!trimmedSummary) {
+            showToast('배포 내용을 한 줄로 요약해주세요.');
+            return;
+        }
+        if (!confirm(`현재 탭의 선택된 설정만 전역 기본값으로 배포하시겠습니까?\n선택 항목: ${selectedLabels}`)) return;
         
         setDeploying(true);
         try {
-            const result = await deployGlobalConfig(supabaseClient, tempConfig, globalVersion);
+            const result = await deployGlobalConfig(supabaseClient, globalConfig, tempConfig, globalVersion, {
+                featureId: currentFeatureId,
+                sections: selectedSections,
+                summary: trimmedSummary,
+            });
             if (!result.success) {
                 showToast('전역 배포 실패: ' + result.error);
             } else {
-                showToast('새로운 전역 설정이 배포되었습니다! (Ver.' + result.newVersion + ')');
+                showToast(`${currentSettingsTab.title} 설정이 전역 배포되었습니다. (${selectedLabels}) Ver.${result.newVersion}`);
                 setGlobalVersion(result.newVersion);
                 setBaseVersion(result.newVersion); // 내 버전도 최신으로 갱신
-                setGlobalConfig(tempConfig);
-                setConfig(tempConfig);
+                setGlobalConfig(result.config);
+                setConfig(normalizeAssistantConfig(tempConfig));
                 setHasGlobalUpdate(false);
+                setShowDeployDialog(false);
                 onClose();
             }
         } catch (err) {
@@ -947,12 +1137,12 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
 
     // 내보내기
     const handleExport = () => {
-        const exportData = { ...tempConfig };
-        delete exportData._baseVersion;
+        const exportData = stripInternalConfigFields(tempConfig);
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `OphtConfig_${new Date().toISOString().slice(0, 10)}.json`;
+        const safeUserName = (userName || 'assistant-config').replace(/[\\/:*?"<>|]/g, '_').trim() || 'assistant-config';
+        a.download = `${safeUserName}_${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
     };
@@ -965,23 +1155,18 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
         reader.onload = (ev) => {
             try {
                 const imported = JSON.parse(ev.target.result);
-                setTempConfig(prev => ({ ...prev, ...imported }));
-                showToast('설정을 불러왔습니다. "저장 및 적용"을 눌러 반영하세요.');
+                if (!confirm('전체 설정을 불러오면 현재 계정의 진료도우미 설정이 모두 교체됩니다.\n계속하시겠습니까?')) {
+                    e.target.value = '';
+                    return;
+                }
+                setTempConfig(normalizeAssistantConfig(imported));
+                showToast('전체 설정을 불러왔습니다. "내 설정 저장"을 눌러 반영하세요.');
             } catch {
                 showToast('파일 형식이 올바르지 않습니다.');
             }
         };
         reader.readAsText(f);
         e.target.value = '';
-    };
-
-    // 전역 업데이트 적용
-    const handleApplyGlobalUpdate = () => {
-        if (!globalConfig) return;
-        const updated = applyGlobalUpdate(tempConfig, globalConfig);
-        setTempConfig(updated);
-        setHasGlobalUpdate(false);
-        showToast('전역 설정이 반영되었습니다. "저장 및 적용"을 눌러 저장하세요.');
     };
 
     return (
@@ -1010,23 +1195,16 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
                         <button onClick={onClose} className="modal-close-btn">&times;</button>
                     </div>
 
-                    {/* 전역 업데이트 알림 */}
-                    {hasGlobalUpdate && (
-                        <div className="global-update-banner">
-                            <i className="fa-solid fa-circle-exclamation"></i>
-                            <span>관리자가 전역 설정을 업데이트했습니다.</span>
-                            <button onClick={handleApplyGlobalUpdate} className="global-update-btn">적용하기</button>
-                        </div>
-                    )}
-
                     {/* 컨텐츠 */}
                     <div className="modal-body">
-                        <div className="settings-section mb-6">
-                            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                <div>
-                                    <h3 className="font-bold text-slate-800">기능 사용</h3>
-                                    <p className="text-xs font-bold text-slate-400 mt-1">
-                                        끄면 좌측 툴바에서 이 기능이 표시되지 않습니다.
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                <div className="min-w-0 pr-3">
+                                    <p className="text-sm font-bold text-slate-800">
+                                        이 기능 표시
+                                        <span className="ml-2 text-[11px] font-semibold text-slate-400">
+                                            끄면 이 계정의 좌측 툴바에서만 숨겨집니다.
+                                        </span>
                                     </p>
                                 </div>
                                 <button
@@ -1242,23 +1420,184 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
                     </div>
 
                     {/* 하단 버튼 */}
-                    <div className="modal-footer">
-                        {isAdmin && (
-                            <button onClick={handleDeployGlobal} disabled={deploying} className="modal-btn-deploy">
-                                {deploying ? '배포 중...' : '전역 설정 배포'}
+                        <div className="modal-footer">
+                            <button onClick={handleOpenUserPresetDialog} className="modal-btn-import" type="button">
+                                <span className="block leading-tight">다른 사용자의</span>
+                                <span className="block leading-tight">전체 설정 불러오기</span>
                             </button>
-                        )}
-                        <button onClick={handleExport} className="modal-btn-export">설정 내보내기</button>
-                        <label className="modal-btn-import">
-                            설정 불러오기
-                            <input type="file" accept=".json" className="hidden" onChange={handleImport} />
-                        </label>
-                        <button onClick={handleSave} disabled={saving} className="modal-btn-save">
-                            {saving ? '저장 중...' : '저장 및 적용'}
-                        </button>
-                    </div>
+                            {isAdmin && (
+                                <button onClick={handleOpenDeployDialog} disabled={deploying} className="modal-btn-deploy">
+                                    {deploying ? '배포 중...' : '이 탭 기본값 배포'}
+                                </button>
+                            )}
+                            <button onClick={handleExport} className="modal-btn-export">
+                                <span className="block leading-tight">파일로</span>
+                                <span className="block leading-tight">전체 설정 내보내기</span>
+                            </button>
+                            <label className="modal-btn-import">
+                                <span className="block leading-tight">파일에서</span>
+                                <span className="block leading-tight">전체 설정 불러오기</span>
+                                <input type="file" accept=".json" className="hidden" onChange={handleImport} />
+                            </label>
+                            <button onClick={handleSave} disabled={saving} className="modal-btn-save">
+                                {saving ? '저장 중...' : '내 설정 저장'}
+                            </button>
+                        </div>
+                        <p className="px-8 pb-6 pt-2 text-xs font-medium text-slate-400">
+                            `내 설정 저장`은 현재 계정에만 적용됩니다. `전체 설정 불러오기`는 이 계정의 설정 전체를 교체합니다.
+                        </p>
                 </div>
             </div>
+
+            {showDeployDialog && (
+                <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-950/40 px-6" onClick={handleCloseDeployDialog}>
+                    <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="mb-4">
+                            <h3 className="text-lg font-black text-slate-900">이 탭 기본값 배포</h3>
+                            <p className="mt-1 text-sm font-medium text-slate-500">
+                                {currentSettingsTab.title} 탭에서 체크한 항목만 모든 사용자의 기본값으로 배포됩니다.
+                            </p>
+                        </div>
+                        <div className="space-y-3">
+                            {currentDeployOptions.map(option => (
+                                <label key={option.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={currentDeploySelections[option.id] !== false}
+                                        onChange={e => updateDeploySelection(currentFeatureId, option.id, e.target.checked)}
+                                        className="h-4 w-4 shrink-0"
+                                    />
+                                    <div>
+                                        <span className="block">{option.label}</span>
+                                        <span className="mt-1 block text-xs font-medium leading-relaxed text-slate-500">
+                                            {option.description}
+                                        </span>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                        {currentFeatureId === 'cost' && pendingCustomDrugNames.length > 0 && (
+                            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+                                <p className="text-sm font-black text-rose-800">약제명 변경 / 신규 약제 확인</p>
+                                <p className="mt-2 text-xs font-medium leading-relaxed text-rose-700">
+                                    현재 전역 기본값에 없는 약제명이 있습니다. `주사제 목록`을 배포하면 아래 약제는 새 약제로 인식될 수 있습니다.
+                                </p>
+                                <p className="mt-2 text-sm font-semibold text-rose-900">
+                                    {pendingCustomDrugNames.join(', ')}
+                                </p>
+                            </div>
+                        )}
+                        <div className="mt-4">
+                            <label className="mb-2 block text-sm font-bold text-slate-700">배포 내용 요약</label>
+                            <textarea
+                                value={deploySummary}
+                                onChange={e => setDeploySummary(e.target.value)}
+                                rows={3}
+                                placeholder="예: 주사 비용 계산기의 약제 가격과 급여 기준을 2026년 3월 기준으로 업데이트했습니다."
+                                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition-colors focus:border-amber-400"
+                            />
+                            <p className="mt-2 text-xs font-medium text-slate-400">
+                                일반 사용자는 Assistant 접속 시 이 요약을 보고 적용 여부를 선택합니다.
+                            </p>
+                        </div>
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={handleCloseDeployDialog}
+                                disabled={deploying}
+                                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                취소
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeployGlobal}
+                                disabled={deploying}
+                                className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {deploying ? '배포 중...' : '선택한 기본값 배포'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showUserPresetDialog && (
+                <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-950/40 px-6" onClick={handleCloseUserPresetDialog}>
+                    <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="mb-4">
+                            <h3 className="text-lg font-black text-slate-900">다른 사용자의 전체 설정 불러오기</h3>
+                            <p className="mt-1 text-sm font-medium text-slate-500">
+                                선택한 사용자의 진료도우미 전체 설정을 현재 계정으로 불러옵니다.
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="text-sm font-semibold leading-relaxed text-slate-700">
+                                불러오면 약제 목록, 비용 기준, 날짜 형식, 기능 표시 상태까지 현재 계정 설정이 모두 바뀝니다.
+                            </p>
+                            <p className="mt-2 text-xs font-medium text-slate-400">
+                                선택 후 즉시 임시 설정에 반영되며, 실제 저장은 `내 설정 저장`을 눌러야 완료됩니다.
+                            </p>
+                        </div>
+                        <div className="mt-4">
+                            <input
+                                type="text"
+                                value={presetSearch}
+                                onChange={e => setPresetSearch(e.target.value)}
+                                placeholder="이름 또는 이메일로 검색"
+                                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition-colors focus:border-indigo-400"
+                            />
+                        </div>
+                        <div className="mt-4 max-h-80 overflow-y-auto rounded-2xl border border-slate-200">
+                            {loadingPresetUsers ? (
+                                <div className="px-4 py-6 text-sm font-semibold text-slate-500">사용자 목록을 불러오는 중입니다...</div>
+                            ) : filteredPresetUsers.length === 0 ? (
+                                <div className="px-4 py-6 text-sm font-semibold text-slate-500">불러올 수 있는 사용자가 없습니다.</div>
+                            ) : (
+                                filteredPresetUsers.map(user => (
+                                    <button
+                                        key={user.id}
+                                        type="button"
+                                        onClick={() => setSelectedPresetUserId(user.id)}
+                                        className={`w-full border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0 ${selectedPresetUserId === user.id ? 'bg-indigo-50' : 'bg-white hover:bg-slate-50'}`}
+                                    >
+                                        <div>
+                                            <p className="text-sm font-black text-slate-800">{user.name || '이름 없음'}</p>
+                                            <p className="mt-1 text-xs font-medium text-slate-500">{user.email || '이메일 없음'}</p>
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                        {selectedPresetUser && (
+                            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                <p className="text-sm font-black text-amber-800">확인 안내</p>
+                                <p className="mt-2 text-xs font-medium leading-relaxed text-amber-700">
+                                    {selectedPresetUser.name}님의 진료도우미 전체 설정이 현재 계정에 반영됩니다. 기능 표시 상태와 비용 기준도 함께 바뀔 수 있습니다.
+                                </p>
+                            </div>
+                        )}
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={handleCloseUserPresetDialog}
+                                disabled={applyingPreset}
+                                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                취소
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleApplyUserPreset}
+                                disabled={applyingPreset || !selectedPresetUserId}
+                                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {applyingPreset ? '불러오는 중...' : '선택한 설정 가져오기'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
