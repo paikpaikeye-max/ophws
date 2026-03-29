@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -14,8 +14,7 @@ export default function PersonnelManagement() {
   const [loading, setLoading] = useState(true);
 
   // 보안 관련 상태 추가
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const authChecked = useRef(false);
+  const [isAuthorized] = useState(true);
 
   // 기본 정렬: 순위 오름차순
   const [sortConfig, setSortConfig] = useState({ key: 'display_order', direction: 'ascending' });
@@ -23,12 +22,7 @@ export default function PersonnelManagement() {
   const [newEntry, setNewEntry] = useState({ name: '', initial: '', role: 'Resident', phone: '', email: '', display_order: 999 });
 
   // 인증은 middleware가 처리 -> 바로 데이터 로드
-  useEffect(() => {
-    setIsAuthorized(true);
-    fetchData();
-  }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     const { data: pData } = await supabase.from('professors').select('*');
     const { data: mData } = await supabase.from('members').select('*');
@@ -51,7 +45,15 @@ export default function PersonnelManagement() {
     setMembers(m);
     setOriginalData({ profs: JSON.parse(JSON.stringify(p)), members: JSON.parse(JSON.stringify(m)) });
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      fetchData();
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
+  }, [fetchData]);
 
   const formatPhone = (val) => {
     if (!val) return '';

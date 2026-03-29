@@ -97,7 +97,7 @@ export default function LandingPage() {
   const handleCall = (name) => {
     const phone = getPhoneByName(name);
     if (phone) {
-      window.location.href = `tel:${phone}`;
+      window.location.assign(`tel:${phone}`);
     } else {
       alert("등록된 전화번호가 없습니다.");
     }
@@ -120,7 +120,7 @@ export default function LandingPage() {
         <section className="bg-white rounded-[2.5rem] p-6 shadow-xl shadow-blue-900/5 border border-slate-100 overflow-hidden">
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
-            Today's Status (오전 8시 기준)
+            Today&apos;s Status (오전 8시 기준)
           </h3>
 
           {/* 당직 인원 (클릭 시 전화 기능) */}

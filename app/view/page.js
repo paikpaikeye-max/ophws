@@ -83,7 +83,7 @@ export default function ScheduleViewer() {
         if (!fullName || fullName === '-') return;
         const cleanName = fullName.split('(')[0].trim();
         const person = staffData.find(s => s.name === cleanName);
-        if (person && person.phone) window.location.href = `tel:${person.phone}`;
+        if (person && person.phone) window.location.assign(`tel:${person.phone}`);
         else alert(`${cleanName} 님의 전화번호 정보가 없습니다.`);
     };
 

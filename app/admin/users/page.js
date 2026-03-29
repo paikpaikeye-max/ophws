@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import LogoutButton from '@/components/LogoutButton'
@@ -15,11 +15,7 @@ export default function AdminUsersPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     )
 
-    useEffect(() => {
-        fetchUsers()
-    }, [])
-
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         setLoading(true)
         const { data, error } = await supabase
             .from('user_profiles')
@@ -30,7 +26,15 @@ export default function AdminUsersPage() {
             setUsers(data)
         }
         setLoading(false)
-    }
+    }, [supabase])
+
+    useEffect(() => {
+        const timerId = window.setTimeout(() => {
+            fetchUsers()
+        }, 0)
+
+        return () => window.clearTimeout(timerId)
+    }, [fetchUsers])
 
     const handleUpdateStatus = async (userId, newStatus) => {
         // 관리자 해제 시 최소 인원 체크

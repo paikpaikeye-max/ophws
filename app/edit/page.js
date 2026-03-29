@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabaseClient';
 import Calendar from 'react-calendar';
@@ -42,6 +42,7 @@ function DroppableSlot({ id, children, placeholder = "배치", acceptType, disab
 
 export default function UltimateScheduleEditor() {
   const router = useRouter();
+  const portalTarget = typeof document !== 'undefined' ? document.body : null;
   const [mounted, setMounted] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const authChecked = useRef(false); // 중복 실행 방지를 위한 Ref
@@ -63,19 +64,19 @@ export default function UltimateScheduleEditor() {
   const fixedTasks = ['전공의외래', '총외래업무', '검안실', '주사/처치', '수술실(OR)'];
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  const formatDate = (date) => {
+  const formatDate = useCallback((date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
-  };
+  }, []);
 
   const showToast = (message) => {
     setToast({ show: true, message });
     setTimeout(() => setToast({ show: false, message: "" }), 2500);
   };
 
-  const loadSchedule = async (targetDate, isAutoLoad = false) => {
+  const loadSchedule = useCallback(async (targetDate, isAutoLoad = false) => {
     const dateStr = formatDate(targetDate);
     const { data, error } = await supabase.from('daily_schedules').select('*').eq('work_date', dateStr).single();
     if (error || !data) {
@@ -89,7 +90,7 @@ export default function UltimateScheduleEditor() {
     setAmCount(data.am_count || 2);
     setPmCount(data.pm_count || 1);
     if (!isAutoLoad) showToast(`${dateStr} 데이터를 불러왔습니다.`);
-  };
+  }, [formatDate]);
 
   const fetchSavedDates = async () => {
     const { data, error } = await supabase.from('daily_schedules').select('work_date, is_temporary');
@@ -119,8 +120,12 @@ export default function UltimateScheduleEditor() {
 
   // 1. 마운트 시 즉시 활성화 (인증은 middleware가 처리)
   useEffect(() => {
-    setIsAuthorized(true);
-    setMounted(true);
+    const timerId = window.setTimeout(() => {
+      setIsAuthorized(true);
+      setMounted(true);
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
   }, []);
 
   // 2. 기본 데이터 로드 로직
@@ -131,14 +136,23 @@ export default function UltimateScheduleEditor() {
       const { data: pfs } = await supabase.from('professors').select('*').eq('is_active', true).order('display_order', { ascending: true });
       setMembers(mems || []); setProfs(pfs || []);
     }
-    fetchBaseData();
-    fetchSavedDates();
+    async function initializeEditor() {
+      await Promise.all([fetchBaseData(), fetchSavedDates()]);
+    }
+
+    initializeEditor();
   }, [isAuthorized]);
 
   // 3. 선택 날짜 변경 시 로드 로직
   useEffect(() => {
-    if (mounted && isAuthorized) loadSchedule(selectedDate, true);
-  }, [selectedDate, mounted, isAuthorized]);
+    if (!mounted || !isAuthorized) return;
+
+    async function syncSchedule() {
+      await loadSchedule(selectedDate, true);
+    }
+
+    syncSchedule();
+  }, [selectedDate, mounted, isAuthorized, loadSchedule]);
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
@@ -308,11 +322,11 @@ export default function UltimateScheduleEditor() {
             </div>
           )}
         </main>
-        {mounted && createPortal(
+        {mounted && portalTarget && createPortal(
           <DragOverlay modifiers={[snapCenterToCursor]} dropAnimation={null}>
             {activeItem ? <DraggableChip name={activeItem.name} id="overlay" isOverlay={true} type={activeItem.type} role={activeItem.role} /> : null}
           </DragOverlay>,
-          document.body
+          portalTarget
         )}
       </div>
       <style jsx global>{`

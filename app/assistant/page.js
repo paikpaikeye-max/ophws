@@ -669,6 +669,7 @@ function RiskSection() {
 
     const hasRPD = rpd.R || rpd.L;
     const currentRates = hasRPD ? RISK_RATES_RPD : RISK_RATES_NO_RPD;
+    const maxRiskRate = Math.max(...RISK_RATES_NO_RPD, ...RISK_RATES_RPD);
     const score = calcScore();
     const risk = score >= 0 ? currentRates[score] : null;
 
@@ -738,8 +739,8 @@ function RiskSection() {
                     </header>
 
                     <div className="grid grid-cols-2 gap-4">
-                        {renderEyePanel('R', 'Right Eye (OD)')}
-                        {renderEyePanel('L', 'Right Eye (OS)')}
+                        {renderEyePanel('R', '우안')}
+                        {renderEyePanel('L', '좌안')}
                     </div>
 
                     {/* 결과 패널 */}
@@ -765,7 +766,7 @@ function RiskSection() {
                     <div className="text-[10px] text-slate-500 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
                         <p><b>* Drusen/Pigment Evaluation Range:</b> Both eyes, within 3000μm of the fovea.</p>
                         <p><b>* Pigmentary Abnormality:</b> Increased pigmentation or hypopigmentation.</p>
-                        <p><b>* Advanced AMD:</b> Neovascular AMD or Geographic Atrophy involving the foveal center.</p>
+                        <p><b>* Advanced AMD:</b> Neovascular AMD or Geographic Atrophy.</p>
                     </div>
                 </div>
 
@@ -784,47 +785,56 @@ function RiskSection() {
                         </div>
                     </div>
                     <div className="glass-card flex-1 p-5 flex flex-col">
-                        <p className="text-[10px] font-black text-slate-400 mb-2 uppercase italic flex justify-between">
+                        <p className="text-xs sm:text-sm font-black text-slate-400 mb-3 uppercase italic flex justify-between gap-3 flex-wrap">
                             <span>5-Year Progression Risk by Score</span>
                             <span className="flex gap-3">
                                 <span className="flex items-center gap-1"><span className="w-2 h-2 bg-blue-500 rounded-sm"></span> No RPD</span>
                                 <span className="flex items-center gap-1"><span className="w-2 h-2 bg-red-400 rounded-sm"></span> With RPD</span>
                             </span>
                         </p>
-                        <div className="flex-1 flex items-end justify-around pb-6 bg-slate-50/50 rounded-lg pt-4 px-2 relative min-h-[160px]">
-                            {score >= 0 && [0,1,2,3,4].map((i) => {
-                                const isSelected = i === score;
-                                const rateNo = RISK_RATES_NO_RPD[i];
-                                const rateYes = RISK_RATES_RPD[i];
-                                const heightNo = (rateNo * 1.5) + 10;
-                                const heightYes = (rateYes * 1.5) + 10;
-                                
-                                return (
-                                    <div key={i} className="flex flex-col items-center gap-1 w-full max-w-[80px] h-full justify-end">
-                                        <div className="flex items-end justify-center w-full gap-3 relative">
-                                            {/* No RPD */}
-                                            <div className="flex flex-col items-center justify-end group">
-                                                <span className={`text-[10px] font-bold mb-1 transition-all ${isSelected && !hasRPD ? 'text-blue-600' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`}>{rateNo}%</span>
-                                                <div
-                                                    style={{ height: `${heightNo}px`, width: '28px' }}
-                                                    className={`rounded-t-md transition-all duration-500 ${isSelected && !hasRPD ? 'bg-blue-500 shadow-lg scale-110' : 'bg-slate-200'}`}
-                                                    title={`Score ${i} (No RPD): ${rateNo}%`}
-                                                ></div>
+                        <div className="flex-1 bg-slate-50/50 rounded-lg px-3 sm:px-5 pt-6 pb-5 relative min-h-[280px] sm:min-h-[340px] lg:min-h-[420px] overflow-hidden">
+                            <div className="absolute inset-x-3 sm:inset-x-5 top-6 bottom-16 pointer-events-none">
+                                {[0, 25, 50, 75, 100].map((tick) => (
+                                    <div
+                                        key={tick}
+                                        className="absolute inset-x-0 border-t border-dashed border-slate-200"
+                                        style={{ bottom: `${tick}%` }}
+                                    />
+                                ))}
+                            </div>
+                            <div className="h-full flex items-end justify-around gap-2 sm:gap-4">
+                                {score >= 0 && [0, 1, 2, 3, 4].map((i) => {
+                                    const isSelected = i === score;
+                                    const rateNo = RISK_RATES_NO_RPD[i];
+                                    const rateYes = RISK_RATES_RPD[i];
+                                    const heightNo = `${Math.max((rateNo / maxRiskRate) * 100, 2)}%`;
+                                    const heightYes = `${Math.max((rateYes / maxRiskRate) * 100, 2)}%`;
+
+                                    return (
+                                        <div key={i} className="flex flex-col items-center gap-2 w-full max-w-[110px] h-full justify-end">
+                                            <div className="flex items-end justify-center w-full gap-2 sm:gap-4 relative h-full">
+                                                <div className="flex flex-col items-center justify-end group h-full flex-1">
+                                                    <span className={`text-xs sm:text-sm font-bold mb-2 transition-all ${isSelected && !hasRPD ? 'text-blue-600' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`}>{rateNo}%</span>
+                                                    <div
+                                                        style={{ height: heightNo }}
+                                                        className={`w-full max-w-[44px] rounded-t-lg transition-all duration-500 ${isSelected && !hasRPD ? 'bg-blue-500 shadow-lg scale-105' : 'bg-slate-200'}`}
+                                                        title={`Score ${i} (No RPD): ${rateNo}%`}
+                                                    ></div>
+                                                </div>
+                                                <div className="flex flex-col items-center justify-end group h-full flex-1">
+                                                    <span className={`text-xs sm:text-sm font-bold mb-2 transition-all ${isSelected && hasRPD ? 'text-red-500' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`}>{rateYes}%</span>
+                                                    <div
+                                                        style={{ height: heightYes }}
+                                                        className={`w-full max-w-[44px] rounded-t-lg transition-all duration-500 ${isSelected && hasRPD ? 'bg-red-400 shadow-lg scale-105' : 'bg-slate-300'}`}
+                                                        title={`Score ${i} (With RPD): ${rateYes}%`}
+                                                    ></div>
+                                                </div>
                                             </div>
-                                            {/* With RPD */}
-                                            <div className="flex flex-col items-center justify-end group">
-                                                <span className={`text-[10px] font-bold mb-1 transition-all ${isSelected && hasRPD ? 'text-red-500' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`}>{rateYes}%</span>
-                                                <div
-                                                    style={{ height: `${heightYes}px`, width: '28px' }}
-                                                    className={`rounded-t-md transition-all duration-500 ${isSelected && hasRPD ? 'bg-red-400 shadow-lg scale-110' : 'bg-slate-300'}`}
-                                                    title={`Score ${i} (With RPD): ${rateYes}%`}
-                                                ></div>
-                                            </div>
+                                            <span className={`text-sm sm:text-base font-black mt-1 ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`}>{i}</span>
                                         </div>
-                                        <span className={`text-[11px] font-black mt-3 ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`}>{i}점</span>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                 </div>
