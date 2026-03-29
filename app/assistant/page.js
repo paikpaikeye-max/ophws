@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import './assistant.css';
@@ -188,7 +188,7 @@ export default function AssistantPage() {
                     {activeTab === 'schedule' && <ScheduleSection config={config} showToast={showToast} />}
                     {activeTab === 'cost' && <CostSection config={config} />}
                     {activeTab === 'risk' && <RiskSection />}
-                    {activeTab === 'iol' && <IolSection />}
+                    {activeTab === 'iol' && <IolSection config={config} />}
                 </div>
             </main>
 
@@ -857,6 +857,8 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
     const [loadingPresetUsers, setLoadingPresetUsers] = useState(false);
     const [selectedPresetUserId, setSelectedPresetUserId] = useState(null);
     const [applyingPreset, setApplyingPreset] = useState(false);
+    const [selectedIolCategory, setSelectedIolCategory] = useState(null);
+    const [selectedIolLensId, setSelectedIolLensId] = useState(null);
 
     // hospRate를 가져올 때 float 보장
     const hospRate = parseFloat(tempConfig.hospRate) || 0.6;
@@ -882,6 +884,16 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
         );
     });
     const selectedPresetUser = presetUsers.find(user => user.id === selectedPresetUserId) || null;
+    const iolCategories = [
+        { id: 'group-a', label: '난시교정 불필요', description: '난시 교정이 필요 없는 경우의 4개 옵션', items: IOL_GROUP_A },
+        { id: 'group-b', label: '난시교정 필요', description: '난시 교정이 필요한 경우의 6개 옵션', items: IOL_GROUP_B },
+    ];
+    const activeIolCategory = iolCategories.find(category => category.id === selectedIolCategory) || null;
+    const activeIolLens = activeIolCategory?.items.find(iol => iol.id === selectedIolLensId) || null;
+    const hasUnsavedChanges = useMemo(
+        () => JSON.stringify(normalizeAssistantConfig(tempConfig)) !== JSON.stringify(normalizeAssistantConfig(config)),
+        [tempConfig, config]
+    );
 
     const updateFeatureVisibility = (featureId, enabled) => {
         setTempConfig(prev => ({
@@ -1029,7 +1041,6 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
             }
             setConfig(normalizedConfig);
             showToast('설정이 저장되었습니다.');
-            onClose();
         } catch (err) {
             showToast('저장 중 오류: ' + err.message);
         }
@@ -1420,10 +1431,229 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
 
                         {settingsTab === 'iol-set' && (
                             <div className="space-y-6">
-                                <div className="settings-section">
-                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                                        추후 개별화된 인공수정체 장단점 안내 설정이 구현될 예정입니다.
-                                    </p>
+                                <div className="settings-section space-y-4">
+                                    {hasUnsavedChanges && (
+                                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+                                            저장되지 않은 변경사항이 있습니다.
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                                        <div>
+                                            <h3 className="text-sm font-black text-slate-800">가격 출력 설정</h3>
+                                            <p className="mt-1 text-xs font-medium text-slate-500">안내문 출력 시 각 렌즈 카드에 가격 항목을 함께 표시합니다.</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTempConfig(prev => ({
+                                                ...prev,
+                                                iol: {
+                                                    ...(prev.iol || {}),
+                                                    showPrice: !(prev.iol?.showPrice),
+                                                    lensOverrides: { ...(prev.iol?.lensOverrides || {}) },
+                                                },
+                                            }))}
+                                            className={`relative h-7 w-12 overflow-hidden rounded-full transition-colors ${tempConfig.iol?.showPrice ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                        >
+                                            <span className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${tempConfig.iol?.showPrice ? 'translate-x-5' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                                        <div>
+                                            <h3 className="text-sm font-black text-slate-800">흑백 인쇄 최적화</h3>
+                                            <p className="mt-1 text-xs font-medium text-slate-500">배지와 가격 강조 박스를 흑백 인쇄에서도 더 잘 구분되게 조정합니다.</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTempConfig(prev => ({
+                                                ...prev,
+                                                iol: {
+                                                    ...(prev.iol || {}),
+                                                    monochromePrint: !(prev.iol?.monochromePrint),
+                                                    lensOverrides: { ...(prev.iol?.lensOverrides || {}) },
+                                                },
+                                            }))}
+                                            className={`relative h-7 w-12 overflow-hidden rounded-full transition-colors ${tempConfig.iol?.monochromePrint ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                        >
+                                            <span className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${tempConfig.iol?.monochromePrint ? 'translate-x-5' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
+                                        <button type="button" onClick={() => { setSelectedIolCategory(null); setSelectedIolLensId(null); }} className={`rounded-full px-3 py-1.5 transition-colors ${!selectedIolCategory ? 'bg-indigo-600 text-white' : 'bg-slate-100 hover:bg-slate-200'}`}>렌즈 별 안내문 변경</button>
+                                        {activeIolCategory && (
+                                            <>
+                                                <span>/</span>
+                                                <button type="button" onClick={() => setSelectedIolLensId(null)} className={`rounded-full px-3 py-1.5 transition-colors ${selectedIolCategory && !selectedIolLensId ? 'bg-indigo-600 text-white' : 'bg-slate-100 hover:bg-slate-200'}`}>{activeIolCategory.label}</button>
+                                            </>
+                                        )}
+                                        {activeIolLens && (
+                                            <>
+                                                <span>/</span>
+                                                <button type="button" onClick={() => setSelectedIolLensId(activeIolLens.id)} className="rounded-full bg-indigo-600 px-3 py-1.5 text-white">{activeIolLens.name}</button>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {!activeIolCategory && (
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            {iolCategories.map(category => (
+                                                <button
+                                                    key={category.id}
+                                                    type="button"
+                                                    onClick={() => { setSelectedIolCategory(category.id); setSelectedIolLensId(null); }}
+                                                    className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md"
+                                                >
+                                                    <p className="text-sm font-black text-slate-800">{category.label}</p>
+                                                    <p className="mt-2 text-xs font-medium text-slate-500">{category.description}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {activeIolCategory && !activeIolLens && (
+                                        <div className="space-y-3">
+                                            {activeIolCategory.items.map(iol => (
+                                                <button
+                                                    key={iol.id}
+                                                    type="button"
+                                                    onClick={() => setSelectedIolLensId(iol.id)}
+                                                    className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md"
+                                                >
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div>
+                                                            <p className="text-sm font-black text-slate-800">{iol.name}</p>
+                                                            <p className="mt-1 text-xs font-medium text-slate-500">{iol.feature}</p>
+                                                        </div>
+                                                        <span className="text-xs font-black text-indigo-500">편집</span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {activeIolCategory && activeIolLens && (() => {
+                                        const iol = activeIolLens;
+                                        const defaults = getDefaultIolFields(iol);
+                                        const override = tempConfig.iol?.lensOverrides?.[iol.id] || {};
+                                        const currentProsText = Object.prototype.hasOwnProperty.call(override, 'prosText') ? override.prosText : defaults.prosText;
+                                        const currentConsText = Object.prototype.hasOwnProperty.call(override, 'consText') ? override.consText : defaults.consText;
+                                        const currentTargetText = Object.prototype.hasOwnProperty.call(override, 'targetText') ? override.targetText : defaults.targetText;
+                                        const updateIolField = (field, value) => {
+                                            setTempConfig(prev => ({
+                                                ...prev,
+                                                iol: {
+                                                    ...(prev.iol || {}),
+                                                    showPrice: Boolean(prev.iol?.showPrice),
+                                                    monochromePrint: Boolean(prev.iol?.monochromePrint),
+                                                    lensOverrides: {
+                                                        ...(prev.iol?.lensOverrides || {}),
+                                                            [iol.id]: {
+                                                            price: prev.iol?.lensOverrides?.[iol.id]?.price ?? '',
+                                                            prosText: prev.iol?.lensOverrides?.[iol.id]?.prosText ?? defaults.prosText,
+                                                            consText: prev.iol?.lensOverrides?.[iol.id]?.consText ?? defaults.consText,
+                                                            targetText: prev.iol?.lensOverrides?.[iol.id]?.targetText ?? defaults.targetText,
+                                                            [field]: value,
+                                                        },
+                                                    },
+                                                },
+                                            }));
+                                        };
+
+                                        return (
+                                            <div className="space-y-4">
+                                                <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+                                                    {activeIolCategory.items.map(item => (
+                                                        <button
+                                                            key={item.id}
+                                                            type="button"
+                                                            onClick={() => setSelectedIolLensId(item.id)}
+                                                            className={`rounded-full px-3 py-1.5 text-xs font-black transition-colors ${item.id === iol.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                                                        >
+                                                            {item.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div>
+                                                            <h3 className="text-sm font-black text-slate-800">{iol.name}</h3>
+                                                            <p className="mt-1 text-xs font-medium text-slate-500">{iol.feature}</p>
+                                                        </div>
+                                                        <div className="flex items-start gap-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setTempConfig(prev => {
+                                                                        const nextOverrides = { ...(prev.iol?.lensOverrides || {}) };
+                                                                        delete nextOverrides[iol.id];
+                                                                        return {
+                                                                            ...prev,
+                                                                            iol: {
+                                                                                ...(prev.iol || {}),
+                                                                                showPrice: Boolean(prev.iol?.showPrice),
+                                                                                monochromePrint: Boolean(prev.iol?.monochromePrint),
+                                                                                lensOverrides: nextOverrides,
+                                                                            },
+                                                                        };
+                                                                    });
+                                                                }}
+                                                                className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-500 transition-colors hover:bg-slate-50"
+                                                            >
+                                                                안내문구 초기화
+                                                            </button>
+                                                            <div className="w-40 shrink-0">
+                                                                <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-slate-400">가격</label>
+                                                                <div className="flex items-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 py-3">
+                                                                    <span className="text-sm font-black text-slate-500">약</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        inputMode="numeric"
+                                                                        value={override.price ?? ''}
+                                                                        onChange={e => updateIolField('price', e.target.value.replace(/[^0-9]/g, ''))}
+                                                                        className="min-w-0 flex-1 border-0 bg-transparent p-0 text-center text-base font-black text-slate-800 outline-none"
+                                                                    />
+                                                                    <span className="text-sm font-black text-slate-500">만원</span>
+                                                                </div>
+                                                                <p className="mt-1 text-[11px] font-medium text-slate-400">비워두면 가격이 출력되지 않습니다.</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-slate-400">장점</label>
+                                                            <textarea
+                                                                rows={4}
+                                                                value={currentProsText}
+                                                                onChange={e => updateIolField('prosText', e.target.value)}
+                                                                className="input-base min-h-[120px] resize-y bg-white leading-relaxed"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-slate-400">단점</label>
+                                                            <textarea
+                                                                rows={4}
+                                                                value={currentConsText}
+                                                                onChange={e => updateIolField('consText', e.target.value)}
+                                                                className="input-base min-h-[120px] resize-y bg-white leading-relaxed"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-slate-400">적합한 분</label>
+                                                            <textarea
+                                                                rows={4}
+                                                                value={currentTargetText}
+                                                                onChange={e => updateIolField('targetText', e.target.value)}
+                                                                className="input-base min-h-[120px] resize-y bg-white leading-relaxed"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[11px] font-medium text-slate-400">권장 2~4줄. 줄바꿈마다 한 항목으로 출력됩니다.</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         )}
@@ -1449,9 +1679,16 @@ function SettingsModal({ config, setConfig, userId, globalVersion, globalConfig,
                                 <span className="block leading-tight">전체 설정 불러오기</span>
                                 <input type="file" accept=".json" className="hidden" onChange={handleImport} />
                             </label>
-                            <button onClick={handleSave} disabled={saving} className="modal-btn-save">
-                                {saving ? '저장 중...' : '내 설정 저장'}
-                            </button>
+                            <div className="modal-save-group">
+                                {hasUnsavedChanges && (
+                                    <div className="modal-save-status">
+                                        변경사항 있음
+                                    </div>
+                                )}
+                                <button onClick={handleSave} disabled={saving} className="modal-btn-save">
+                                    {saving ? '저장 중...' : '내 설정 저장'}
+                                </button>
+                            </div>
                         </div>
                         <p className="px-8 pb-6 pt-2 text-xs font-medium text-slate-400">
                             `내 설정 저장`은 현재 계정에만 적용됩니다. `전체 설정 불러오기`는 이 계정의 설정 전체를 교체합니다.
@@ -1703,7 +1940,37 @@ const IOL_GROUP_B = [
     }
 ];
 
-function IolSection() {
+const IOL_SETTINGS_ITEMS = [...IOL_GROUP_A, ...IOL_GROUP_B];
+
+function getDefaultIolFields(iol) {
+    return {
+        prosText: iol.pros.join('\n'),
+        consText: iol.cons.join('\n'),
+        targetText: iol.target.split(',').map(item => item.trim()).filter(Boolean).join('\n'),
+    };
+}
+
+function parseConfiguredLines(value, fallbackItems) {
+    const items = (value || '')
+        .split('\n')
+        .map(item => item.trim())
+        .filter(Boolean);
+
+    return items.length > 0 ? items : fallbackItems;
+}
+
+function getConfiguredIolData(iol, config) {
+    const override = config?.iol?.lensOverrides?.[iol.id] || {};
+
+    return {
+        price: override.price ?? '',
+        pros: parseConfiguredLines(override.prosText, iol.pros),
+        cons: parseConfiguredLines(override.consText, iol.cons),
+        target: parseConfiguredLines(override.targetText, iol.target.split(',').map(item => item.trim()).filter(Boolean)),
+    };
+}
+
+function IolSection({ config }) {
     const [patientInfo, setPatientInfo] = useState({ name: '', eye: '우안' });
     const [toricNeeded, setToricNeeded] = useState(false);
     const [recsA, setRecsA] = useState({});
@@ -1810,6 +2077,8 @@ function IolSection() {
         };
         const layout = layoutMap[printSize] || layoutMap.small;
         const isLarge = printSize === 'large';
+        const isMedium = printSize === 'medium';
+        const isMonochromePrint = Boolean(config?.iol?.monochromePrint);
 
         const css = `
         <style>
@@ -1825,16 +2094,21 @@ function IolSection() {
             .intro { font-size: ${layout.introFont}; color: #475569; margin-bottom: 10px; line-height: 1.55; }
             .intro strong { color: #1e293b; }
             .lens-card { border: 2px solid #e2e8f0; border-radius: 12px; padding: ${layout.cardPadding}; margin: ${layout.cardMargin}; page-break-inside: avoid; position: relative; }
-            .lens-card.is-recommend { border-color: #6366f1; background: #fafaff; }
+            .lens-card.is-recommend { border-color: ${isMonochromePrint ? '#334155' : '#6366f1'}; background: ${isMonochromePrint ? '#f8fafc' : '#fafaff'}; }
             .badge { font-size: ${layout.badgeFont}; font-weight: 900; padding: 3px 10px; border-radius: 6px; letter-spacing: 0.5px; border: 1px solid rgba(0,0,0,0.1); margin-left: 8px; vertical-align: middle; }
-            .badge-recommend { background: #6366f1; color: white; }
-            .badge-possible { background: #f59e0b; color: white; }
+            .badge-recommend { background: ${isMonochromePrint ? '#475569' : '#6366f1'}; color: white; }
+            .badge-possible { background: ${isMonochromePrint ? '#94a3b8' : '#f59e0b'}; color: ${isMonochromePrint ? '#0f172a' : 'white'}; }
             .lens-header { display: flex; align-items: ${isLarge ? 'flex-start' : 'center'}; flex-wrap: wrap; gap: ${isLarge ? '8px' : '0'}; margin-bottom: 10px; }
             .lens-name { font-size: ${layout.lensNameFont}; font-weight: 900; color: #1e293b; }
-            .lens-feature { font-size: ${layout.featureFont}; color: #64748b; font-weight: 700; flex-grow: 1; text-align: ${isLarge ? 'left' : 'right'}; width: ${isLarge ? '100%' : 'auto'}; margin-top: ${isLarge ? '4px' : '0'}; }
+            .lens-meta { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: wrap; flex-grow: 1; }
+            .lens-feature { font-size: ${layout.featureFont}; color: #64748b; font-weight: 700; text-align: right; margin-top: ${isLarge ? '4px' : '0'}; }
+            .lens-price { font-size: ${layout.featureFont}; font-weight: 900; color: #334155; white-space: nowrap; padding: 4px 10px; border: 1px solid ${isMonochromePrint ? '#334155' : '#94a3b8'}; border-radius: 8px; background: ${isMonochromePrint ? '#e5e7eb' : '#f8fafc'}; }
             .info-grid { display: grid; grid-template-columns: ${layout.columns}; gap: 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
             .info-box { background: white; padding: ${layout.boxPadding}; }
             .info-box:not(:last-child) { border-${layout.splitDirection}: 1px solid #e2e8f0; }
+            .info-grid.medium { grid-template-columns: 1fr 1fr; }
+            .info-grid.medium .info-box:nth-child(2) { border-right: none; }
+            .info-grid.medium .info-box.target-box { grid-column: 1 / -1; border-top: 1px solid #e2e8f0; }
             .info-box h4 { font-size: ${layout.sectionTitleFont}; font-weight: 900; margin-bottom: 8px; color: #1e293b; }
             .info-box ul { font-size: ${layout.bodyFont}; font-weight: 600; color: #334155; padding-left: 18px; line-height: ${layout.lineHeight}; list-style-type: disc; }
             .info-box li { margin-bottom: 5px; }
@@ -1847,27 +2121,33 @@ function IolSection() {
             const isRecommend = rec === 'recommend';
             const badgeClass = isRecommend ? 'badge-recommend' : 'badge-possible';
             const badgeText = isRecommend ? '추천' : '선택가능';
-            const targetItems = iol.target.split(',').map(t => t.trim()).filter(Boolean);
+            const configured = getConfiguredIolData(iol, config);
+            const priceHtml = config?.iol?.showPrice && configured.price
+                ? `<div class="lens-price">약 ${configured.price}만원</div>`
+                : '';
 
             return `
             <div class="lens-card ${isRecommend ? 'is-recommend' : ''}">
                 <div class="lens-header">
                     <div class="lens-name">${iol.name}</div>
                     <div class="badge ${badgeClass}">${badgeText}</div>
-                    <div class="lens-feature">${iol.feature}</div>
+                    <div class="lens-meta">
+                        <div class="lens-feature">${iol.feature}</div>
+                        ${priceHtml}
+                    </div>
                 </div>
-                <div class="info-grid">
+                <div class="info-grid ${isMedium ? 'medium' : ''}">
                     <div class="info-box">
                         <h4>장점</h4>
-                        <ul>${iol.pros.map(p => `<li>${p}</li>`).join('')}</ul>
+                        <ul>${configured.pros.map(p => `<li>${p}</li>`).join('')}</ul>
                     </div>
                     <div class="info-box">
                         <h4>단점</h4>
-                        <ul>${iol.cons.map(c => `<li>${c}</li>`).join('')}</ul>
+                        <ul>${configured.cons.map(c => `<li>${c}</li>`).join('')}</ul>
                     </div>
-                    <div class="info-box">
+                    <div class="info-box target-box">
                         <h4>적합한 분</h4>
-                        <ul>${targetItems.map(t => `<li>${t}</li>`).join('')}</ul>
+                        <ul>${configured.target.map(t => `<li>${t}</li>`).join('')}</ul>
                     </div>
                 </div>
             </div>`;

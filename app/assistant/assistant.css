@@ -727,14 +727,34 @@
 .modal-btn-import:hover { border-color: #94a3b8; }
 .modal-btn-import input { display: none; }
 
-.modal-btn-save {
+.modal-save-group {
     flex: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+}
+
+.modal-save-status {
+    align-self: flex-start;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #b45309;
+    font-size: 0.72rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.modal-btn-save {
+    width: 100%;
     background: #4f46e5;
     color: white;
-    padding: 0.8rem;
+    padding: 0.68rem 1rem;
     border-radius: 1rem;
     font-weight: 900;
     font-size: 1.1rem;
+    line-height: 1.15;
     border: none;
     cursor: pointer;
     box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
@@ -804,4 +824,4 @@
     }
 }
 */
-
+
