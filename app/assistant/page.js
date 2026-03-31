@@ -188,7 +188,7 @@ export default function AssistantPage() {
                     {activeTab === 'schedule' && <ScheduleSection config={config} showToast={showToast} />}
                     {activeTab === 'cost' && <CostSection config={config} />}
                     {activeTab === 'risk' && <RiskSection />}
-                    {activeTab === 'iol' && <IolSection config={config} />}
+                    {activeTab === 'iol' && <IolSection config={config} showToast={showToast} />}
                 </div>
             </main>
 
@@ -1970,7 +1970,7 @@ function getConfiguredIolData(iol, config) {
     };
 }
 
-function IolSection({ config }) {
+function IolSection({ config, showToast }) {
     const [patientInfo, setPatientInfo] = useState({ name: '', eye: '우안' });
     const [toricNeeded, setToricNeeded] = useState(false);
     const [recsA, setRecsA] = useState({});
@@ -1980,6 +1980,12 @@ function IolSection({ config }) {
     const currentGroup = toricNeeded ? IOL_GROUP_B : IOL_GROUP_A;
     const currentRecs = toricNeeded ? recsB : recsA;
     const setCurrentRecs = toricNeeded ? setRecsB : setRecsA;
+    const currentGroupOrder = toricNeeded
+        ? ['t_mono_far', 't_mono_near', 't_mono_far_toric', 't_mono_near_toric', 't_edof_toric', 't_multi_toric']
+        : ['mono_far', 'mono_near', 'edof', 'multi'];
+    const orderedCurrentGroup = currentGroupOrder
+        .map(id => currentGroup.find(iol => iol.id === id))
+        .filter(Boolean);
 
     const setRec = (id, val) => {
         setCurrentRecs(prev => {
@@ -1993,6 +1999,21 @@ function IolSection({ config }) {
         });
     };
 
+    const cycleRec = (id) => {
+        setCurrentRecs(prev => {
+            const currentValue = prev[id];
+            if (currentValue === 'recommend') {
+                return { ...prev, [id]: 'possible' };
+            }
+            if (currentValue === 'possible') {
+                const nextState = { ...prev };
+                delete nextState[id];
+                return nextState;
+            }
+            return { ...prev, [id]: 'recommend' };
+        });
+    };
+
     const handleReset = () => {
         setCurrentRecs({});
     };
@@ -2002,10 +2023,44 @@ function IolSection({ config }) {
         return rec === 'recommend' || rec === 'possible';
     });
 
+    const buildChartSummary = () => {
+        if (printableItems.length === 0) return '';
+        const lensNames = printableItems.map(iol => iol.name).join(', ');
+        return `${patientInfo.eye} ${lensNames} 렌즈 가능하며 장단점에 대해 설명함`;
+    };
+
     const recLabel = (val) => {
         if (val === 'recommend') return '추천';
         if (val === 'possible') return '선택가능';
         return '';
+    };
+
+    const handleCopyChartSummary = async () => {
+        const chartSummary = buildChartSummary();
+        if (!chartSummary) {
+            if (showToast) {
+                showToast('복사할 차트 문구가 없습니다.');
+            }
+            return;
+        }
+
+        if (!navigator?.clipboard?.writeText) {
+            if (showToast) {
+                showToast('이 브라우저에서는 클립보드 복사를 지원하지 않습니다.');
+            }
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(chartSummary);
+            if (showToast) {
+                showToast('차트 문구가 복사되었습니다.');
+            }
+        } catch {
+            if (showToast) {
+                showToast('차트 문구 복사에 실패했습니다.');
+            }
+        }
     };
 
     const handlePrint = () => {
@@ -2015,6 +2070,12 @@ function IolSection({ config }) {
         }
 
         const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            if (showToast) {
+                showToast('인쇄 창을 열지 못했습니다.');
+            }
+            return;
+        }
         const todayStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
         const layoutMap = {
             small: {
@@ -2257,10 +2318,23 @@ function IolSection({ config }) {
                     <span className="text-[10px] text-slate-400 font-bold">각 렌즈에 추천 여부를 선택하세요</span>
                 </div>
 
-                {currentGroup.map(iol => {
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {orderedCurrentGroup.map(iol => {
                     const rec = currentRecs[iol.id] || '';
                     return (
-                        <div key={iol.id} className={`glass-card p-5 transition-all duration-200 ${rec === 'recommend' ? 'ring-2 ring-green-400 bg-green-50/30' : rec === 'possible' ? 'ring-1 ring-orange-400 bg-orange-50/30' : ''}`}>
+                        <div
+                            key={iol.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => cycleRec(iol.id)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    cycleRec(iol.id);
+                                }
+                            }}
+                            className={`glass-card p-5 text-left transition-all duration-200 ${rec === 'recommend' ? 'ring-2 ring-green-400 bg-green-50/30' : rec === 'possible' ? 'ring-1 ring-orange-400 bg-orange-50/30' : ''}`}
+                        >
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1 min-w-0 flex items-center">
                                     <h3 className="text-base font-black text-slate-800">{iol.name}</h3>
@@ -2270,7 +2344,13 @@ function IolSection({ config }) {
                                         const s = recStyles[val];
                                         const isActive = rec === val;
                                         return (
-                                            <button key={val} onClick={() => setRec(iol.id, val)}
+                                            <button
+                                                key={val}
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setRec(iol.id, val);
+                                                }}
                                                 className={`px-3 py-1.5 rounded-lg text-[11px] font-black border-2 transition-all duration-150 ${isActive ? `${s.bg} ${s.border} ${s.text}` : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}>
                                                 {recLabel(val)}
                                             </button>
@@ -2281,6 +2361,7 @@ function IolSection({ config }) {
                         </div>
                     );
                 })}
+                </div>
             </div>
 
             <div className="pt-2 pb-8 space-y-2">
@@ -2308,9 +2389,18 @@ function IolSection({ config }) {
                     </div>
                     <button onClick={handlePrint}
                         disabled={printableItems.length === 0}
-                        className={`w-[50%] shrink-0 font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 border ${printableItems.length > 0 ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700' : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'}`}>
+                        className={`w-[30%] shrink-0 font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 border ${printableItems.length > 0 ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700' : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'}`}>
                         <i className="fa-solid fa-print"></i>
                         안내문 출력
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleCopyChartSummary}
+                        disabled={printableItems.length === 0}
+                        className={`w-[24%] shrink-0 font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 border text-sm ${printableItems.length > 0 ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300' : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'}`}
+                    >
+                        <i className="fa-regular fa-copy"></i>
+                        차트 문구 복사
                     </button>
                 </div>
                 {printableItems.length === 0 && (
