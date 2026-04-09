@@ -7,6 +7,40 @@ import './assistant.css';
 import { DEFAULT_ASSISTANT_CONFIG, DIAGS, HOSP_LABELS, DATE_FORMATS, ASSISTANT_FEATURES, ASSISTANT_SETTINGS_TABS, ASSISTANT_DEPLOY_OPTIONS, DEFAULT_DEPLOY_SELECTIONS } from '@/lib/assistantConstants';
 import { loadMergedConfig, saveUserConfig, applyGlobalUpdate, deployGlobalConfig, normalizeAssistantConfig, stripInternalConfigFields } from '@/lib/assistantConfig';
 
+function RareGeneSection() {
+    return (
+        <section className="max-w-3xl mx-auto space-y-6">
+            <div className="glass-card p-8 border-t-8 border-violet-500 shadow-lg space-y-5">
+                <header className="border-b border-slate-100 pb-4">
+                    <h2 className="text-3xl font-black text-slate-800">유전자검사지원사업</h2>
+                    <p className="mt-2 text-sm font-bold leading-relaxed text-slate-500">
+                        희귀질환 의심 환자에서 유전자검사 지원사업 정보를 빠르게 확인할 수 있도록 안내하는 메뉴입니다.
+                    </p>
+                </header>
+
+                <div className="rounded-3xl border border-violet-100 bg-violet-50/60 p-6 text-sm font-medium leading-7 text-slate-700">
+                    <p>
+                        희귀질환 유전자검사지원사업은 진단이 어려운 희귀질환 환자에게 필요한 유전자검사를 지원해 조기 진단과 진료 연계를 돕는 사업입니다.
+                    </p>
+                    <p className="mt-3">
+                        아래 링크를 통해 지원사업 소개와 관련 정보를 확인할 수 있습니다.
+                    </p>
+                </div>
+
+                <a
+                    href="https://raredxgene.vercel.app/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-6 py-4 text-sm font-black text-white shadow-lg transition-colors hover:bg-violet-700"
+                >
+                    <i className="fa-solid fa-up-right-from-square"></i>
+                    희귀질환 유전자검사지원사업 바로가기
+                </a>
+            </div>
+        </section>
+    );
+}
+
 export default function AssistantPage() {
     const router = useRouter();
     const [config, setConfig] = useState(DEFAULT_ASSISTANT_CONFIG);
@@ -189,6 +223,7 @@ export default function AssistantPage() {
                     {activeTab === 'cost' && <CostSection config={config} />}
                     {activeTab === 'risk' && <RiskSection />}
                     {activeTab === 'iol' && <IolSection config={config} showToast={showToast} />}
+                    {activeTab === 'rare-gene' && <RareGeneSection />}
                 </div>
             </main>
 
