@@ -7,6 +7,8 @@ import 'react-calendar/dist/Calendar.css';
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, DragOverlay, rectIntersection } from '@dnd-kit/core';
 import { snapCenterToCursor } from '@dnd-kit/modifiers';
 import { useRouter } from 'next/navigation';
+import ChargeAssignments from '@/components/ChargeAssignments';
+import { CHARGE_KEY, readChargeRows, defaultChargeRows, applyChargeDrop, loadLatestChargeRows } from '@/lib/chargeAssignments';
 
 // --- 1. 드래그 가능한 칩 컴포넌트 ---
 function DraggableChip({ name, id, isOverlay = false, type = "staff", role = "", onRemove }) {
@@ -60,6 +62,12 @@ export default function UltimateScheduleEditor() {
   const [amCount, setAmCount] = useState(2);
   const [pmCount, setPmCount] = useState(1);
   const [savedDates, setSavedDates] = useState([]);
+  const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const loadRequest = useRef(0);
+  const chargeRows = useMemo(() => readChargeRows(roster) ?? defaultChargeRows(profs), [roster, profs]);
+  const setChargeRows = rows => setRoster(previous => ({ ...previous, [CHARGE_KEY]: rows }));
 
   const fixedTasks = ['전공의외래', '총외래업무', '검안실', '주사/처치', '수술실(OR)'];
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -77,19 +85,34 @@ export default function UltimateScheduleEditor() {
   };
 
   const loadSchedule = useCallback(async (targetDate, isAutoLoad = false) => {
+    const requestId = ++loadRequest.current;
+    setScheduleLoading(true);
+    setLoadError('');
     const dateStr = formatDate(targetDate);
-    const { data, error } = await supabase.from('daily_schedules').select('*').eq('work_date', dateStr).single();
-    if (error || !data) {
-      if (!isAutoLoad) alert("기록이 없습니다.");
-      setRoster({}); setPatientCounts({}); setClosedSlots({}); setAmCount(2); setPmCount(1);
-      return;
+    try {
+      const { data, error } = await supabase.from('daily_schedules').select('*').eq('work_date', dateStr).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data && !isAutoLoad) {
+        showToast('해당 날짜에 저장된 배치표가 없습니다.');
+        return;
+      }
+      const nextRoster = { ...(data?.roster_data || {}) };
+      if (readChargeRows(nextRoster) === null) {
+        const inherited = await loadLatestChargeRows(supabase, dateStr);
+        if (inherited !== null) nextRoster[CHARGE_KEY] = inherited;
+      }
+      if (requestId !== loadRequest.current) return;
+      setRoster(nextRoster);
+      setPatientCounts(data?.patient_counts || {});
+      setClosedSlots(data?.closed_slots || {});
+      setAmCount(data?.am_count || 2);
+      setPmCount(data?.pm_count || 1);
+      if (!isAutoLoad) showToast(`${dateStr} 배치와 차지를 불러왔습니다.`);
+    } catch (error) {
+      if (requestId === loadRequest.current) setLoadError(`배치표를 불러오지 못했습니다: ${error.message}`);
+    } finally {
+      if (requestId === loadRequest.current) setScheduleLoading(false);
     }
-    setRoster(data.roster_data || {});
-    setPatientCounts(data.patient_counts || {});
-    setClosedSlots(data.closed_slots || {});
-    setAmCount(data.am_count || 2);
-    setPmCount(data.pm_count || 1);
-    if (!isAutoLoad) showToast(`${dateStr} 데이터를 불러왔습니다.`);
   }, [formatDate]);
 
   const fetchSavedDates = async () => {
@@ -100,22 +123,31 @@ export default function UltimateScheduleEditor() {
   };
 
   const saveSchedule = async (isTemp = false) => {
-    const { error } = await supabase.from('daily_schedules').upsert({
-      work_date: formatDate(selectedDate), roster_data: roster, patient_counts: patientCounts,
+    if (scheduleLoading || loadError || saving) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('daily_schedules').upsert({
+      work_date: formatDate(selectedDate), roster_data: { ...roster, [CHARGE_KEY]: chargeRows }, patient_counts: patientCounts,
       closed_slots: closedSlots, am_count: amCount, pm_count: pmCount, is_temporary: isTemp, updated_at: new Date()
-    });
-    if (error) alert("저장 실패: " + error.message);
-    else { showToast(isTemp ? "임시 저장되었습니다" : "최종 저장이 완료되었습니다"); fetchSavedDates(); }
+      });
+      if (error) throw new Error(error.message);
+      showToast(isTemp ? '배치표와 차지가 임시 저장되었습니다' : '배치표와 차지의 최종 저장이 완료되었습니다');
+      fetchSavedDates();
+    } catch (error) {
+      alert('저장 실패: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const resetEverythingExceptProf = () => {
     setRoster(prev => {
       const next = {};
-      Object.keys(prev).forEach(key => { if (key.includes('prof-slot')) next[key] = prev[key]; });
+      Object.keys(prev).forEach(key => { if (key.includes('prof-slot') || key === CHARGE_KEY) next[key] = prev[key]; });
       return next;
     });
     setPatientCounts({}); setClosedSlots({});
-    showToast("진료 외 모든 정보가 초기화되었습니다.");
+    showToast("진료일정과 차지를 유지하고 나머지 배치를 초기화했습니다.");
   };
 
   // 1. 마운트 시 즉시 활성화 (인증은 middleware가 처리)
@@ -158,6 +190,15 @@ export default function UltimateScheduleEditor() {
     const { active, over } = event;
     setActiveItem(null);
     if (!over) return;
+    if (scheduleLoading || loadError || saving) return;
+    const chargeTarget = over.data.current?.chargeTarget;
+    if (chargeTarget) {
+      const nextRows = applyChargeDrop(chargeRows, chargeTarget, active.data.current);
+      if (nextRows === chargeRows) showToast('해당 칸에 맞는 교수·전공의·PA를 배치해주세요.');
+      else setChargeRows(nextRows);
+      return;
+    }
+    if (over.data.current?.acceptType && over.data.current.acceptType !== active.data.current.type) return;
     const targetId = over.id;
     const sourceId = active.data.current.sourceId;
     const { name } = active.data.current;
@@ -201,7 +242,7 @@ export default function UltimateScheduleEditor() {
       <div className="h-screen bg-[#f8fafc] flex overflow-hidden font-sans select-none relative text-slate-900">
         <aside className="w-80 min-w-[320px] bg-[#1e293b] text-white p-4 flex flex-col shadow-2xl z-20 border-r border-slate-700 text-center">
           <h1 className="text-xl font-black mb-4 text-blue-400 tracking-tighter uppercase tracking-widest cursor-pointer hover:opacity-80 transition-opacity" onClick={() => router.push('/')}>Ophws schedule</h1>
-          <Calendar onChange={setSelectedDate} value={selectedDate} calendarType="gregory" formatDay={(l, d) => d.getDate()} className="custom-calendar mb-6 scale-95" tileClassName={({ date, view }) => {
+          <Calendar onChange={date => { if (!saving) { ++loadRequest.current; setScheduleLoading(true); setSelectedDate(date); } }} value={selectedDate} calendarType="gregory" formatDay={(l, d) => d.getDate()} className="custom-calendar mb-6 scale-95" tileClassName={({ date, view }) => {
             if (view !== 'month') return;
             const dateStr = formatDate(date);
             const record = savedDates.find(d => d.date === dateStr);
@@ -220,15 +261,19 @@ export default function UltimateScheduleEditor() {
             </div>
           </div>
           <div className="mt-auto pt-4 space-y-2 border-t border-slate-700">
+            <a href="/edit/statistics" target="_blank" rel="noopener noreferrer" className="block w-full rounded-xl border border-blue-400/30 bg-blue-500/15 py-3 text-sm font-bold text-blue-200 hover:bg-blue-500/25">기간별 배치 통계 ↗</a>
             <button onClick={() => router.push('/settings')} className="w-full py-3 rounded-xl font-bold bg-slate-700 hover:bg-slate-600 transition-all flex items-center justify-center gap-2 text-sm">⚙️ 구성원 편집</button>
             <button onClick={() => router.push('/')} className="w-full py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 transition-all flex items-center justify-center gap-2 text-sm">🏠 메인 페이지</button>
           </div>
         </aside>
-        <main className="flex-1 p-6 overflow-y-auto bg-[#f8fafc]">
-          <div className="max-w-6xl mx-auto space-y-6 pb-20">
-            <div className="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+        <main className="min-w-0 flex-1 p-6 overflow-y-auto bg-[#f8fafc]">
+          {loadError && <div role="alert" className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{loadError}<button type="button" onClick={() => loadSchedule(selectedDate, true)} className="ml-4 font-bold underline">다시 불러오기</button></div>}
+          {scheduleLoading && <p role="status" className="mb-4 text-sm font-bold text-slate-500">배치표와 차지를 불러오는 중입니다…</p>}
+          <fieldset disabled={scheduleLoading || !!loadError || saving} className="mx-auto grid min-w-0 max-w-[1800px] grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px] disabled:opacity-60">
+          <div className="min-w-0 space-y-6 pb-20">
+            <div className="flex flex-wrap justify-between items-center gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
               <h2 className="text-3xl font-black text-slate-800 tracking-tight">{formatDate(selectedDate)}</h2>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button onClick={resetEverythingExceptProf} className="bg-rose-100 text-rose-600 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-rose-200 transition-all leading-tight">진료일정 외<br />전체 초기화</button>
                 <button onClick={() => setShowLoadModal(true)} className="bg-slate-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all leading-tight">이전 배치<br />불러오기</button>
                 <button onClick={() => saveSchedule(true)} className="bg-amber-500 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-amber-600">임시저장</button>
@@ -245,7 +290,7 @@ export default function UltimateScheduleEditor() {
                 ))}
               </DroppableSlot>
             </section>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 min-[1920px]:grid-cols-2 gap-8">
               {['오전', '오후'].map(shift => (
                 <div key={shift} className="bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden">
                   <div className={`p-4 px-6 ${shift === '오전' ? 'bg-blue-600' : 'bg-indigo-700'} text-white font-black flex justify-between items-center`}>
@@ -304,6 +349,8 @@ export default function UltimateScheduleEditor() {
               ))}
             </div>
           </div>
+          <aside className="min-w-0 xl:sticky xl:top-0"><ChargeAssignments rows={chargeRows} professors={profs} members={members} onChange={setChargeRows} /></aside>
+          </fieldset>
           {showLoadModal && (
             <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl max-w-sm w-full animate-fade-in-up">
